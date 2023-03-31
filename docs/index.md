@@ -23,3 +23,15 @@ Our resources for the project will include the code and templates from assignmen
 
 
 ## Goals and Deliverables
+#### Plans to achieve:
+- Implement and parallelize the image denoising module using Ising and Gibbs sampling with CUDA, OpenMP, or MPI. This goal is important because we consider image denoising as our first toolset in our library, and is also something we had in mind in the first place.
+- Implement and parallelize the greyscale to color module with CUDA, OpenMP, or MPI. This goal is important because a greyscale to color conversion is highly powerful and useful in modern digital art, and we would like to explore ways to improve its efficiency without undermining the performance. We consider this as an advanced image processing tool provided in our library.
+- Implement and parallelize the color augmentation module with CUDA, OpenMP, or MPI. This goal is what we had in mind in the first place, and we consider this to be a module that can be attached to the prior two modules into a image processing pipeline where we first denoise, then color, and if necessary, augment coloring.
+- Conduct performance analysis and profiling of each module with different parallelization methods and determine the best approach for each module.
+- Write a report summarizing the results of our analysis and profiling, detailing the advantages and disadvantages of each parallelization method, and providing recommendations for future improvements.
+#### Hope to achieve:
+- Implement additional image processing modules such as edge detection, image augmentation, and image segmentation. These are some ideas we gained from referencing past projects on the class website and discussed with the instructors. However, these are advanced techniques that require a lot of time and effort.
+- Try a combination of parallelism instead of using only one for each module. This requires extensive parameter and method tuning.
+#### What we have in mind for the demo:
+- We want to demonstrate by showing a raw image that is noisy and with bad coloring, and then our program can use different modules to denoise and augment the color efficiently
+- We are unsure if we can create a effective UI for displaying and profiling the parallelism boosting performance in real-time, but that would be a great add-on to the demo.
