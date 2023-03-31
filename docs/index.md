@@ -35,3 +35,13 @@ Our resources for the project will include the code and templates from assignmen
 #### What we have in mind for the demo:
 - We want to demonstrate by showing a raw image that is noisy and with bad coloring, and then our program can use different modules to denoise and augment the color efficiently
 - We are unsure if we can create a effective UI for displaying and profiling the parallelism boosting performance in real-time, but that would be a great add-on to the demo.
+
+## Platform Choice
+Our choice of C++ as our primary programming language is well-suited to the parallel programming methodologies that we will be using, such as CUDA, OMP, and MPI. Additionally, C++ is a low-level language that allows us to optimize our code for memory access and cache locality, which are important considerations in image processing. We will be running our code on both CPU and GPU architectures on Linux, which will allow us to explore different levels of parallelism depending on the task at hand. To aid in our development and testing, we will also be utilizing GHC machines, which provide a convenient environment for debugging and running sanity checks. Finally, we will have access to Bridges PSC supercomputer, which will allow us to perform extensive profiling and optimization of our code. Overall, our choice of platforms is well-suited to the requirements of our project and will enable us to achieve our goals efficiently and effectively.
+
+## Schedule
+| Week   | Date | Content |
+|--------|-----|--------|
+| ? | ? | ? |
+| ? | ? | ? |
+| ? | ? | ? |
