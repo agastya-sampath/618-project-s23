@@ -45,6 +45,7 @@ Remaining conservative for the milestone, we plan to implement at least one of o
 Finally, we plan to implement at least two more algorithms for image processing (most likely the ones for color conversion and color augmentation) by the end of April.
 In the last week, we plan to just collect numbers, with maybe a few final touches on our implementations if something goes wrong.
 Keeping the above in mind, a tentative weekly schedule is presented in the table below (counting from the submission of this document):
+
 | Week   | Deadline | Content |
 |--------|-----|--------|
 | 1 | April 7 | Set up the framework for library implementation |
