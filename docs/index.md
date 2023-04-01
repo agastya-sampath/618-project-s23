@@ -37,11 +37,18 @@ Our resources for the project will include the code and templates from assignmen
 - We are unsure if we can create a effective UI for displaying and profiling the parallelism boosting performance in real-time, but that would be a great add-on to the demo.
 
 ## Platform Choice
-Our choice of C++ as our primary programming language is well-suited to the parallel programming methodologies that we will be using, such as CUDA, OMP, and MPI. Additionally, C++ is a low-level language that allows us to optimize our code for memory access and cache locality, which are important considerations in image processing. We will be running our code on both CPU and GPU architectures on Linux, which will allow us to explore different levels of parallelism depending on the task at hand. To aid in our development and testing, we will also be utilizing GHC machines, which provide a convenient environment for debugging and running sanity checks. Finally, we will have access to Bridges PSC supercomputer, which will allow us to perform extensive profiling and optimization of our code. Overall, our choice of platforms is well-suited to the requirements of our project and will enable us to achieve our goals efficiently and effectively.
+Our choice of C++ as our primary programming language is well-suited to the parallel programming methodologies that we will be using, such as CUDA, OMP, and MPI (note: we might choose to exclude MPI if the manual overhead becomes clearly significant compared to the other paradigms, since an unfair comparison would not help our project goal). Additionally, C++ is a low-level language that allows us to optimize our code for memory access and cache locality, which are important considerations in image processing. We will be running our code on both CPU and GPU architectures on Linux, which will allow us to explore different levels of parallelism depending on the task at hand. To aid in our development and testing, we will also be utilizing GHC machines, which provide a convenient environment for debugging and running sanity checks. Finally, we will have access to Bridges PSC supercomputer, which will allow us to perform extensive profiling and optimization of our code. Overall, our choice of platforms is well-suited to the requirements of our project and will enable us to achieve our goals efficiently and effectively.
 
 ## Schedule
-| Week   | Date | Content |
+We plan to finish setting up the framework for our library (very basic CUDA/openMP/maybe MPI programs operating on images) by the first week of April.
+Remaining conservative for the milestone, we plan to implement at least one of our identified image processing algorithms in openMP/CUDA/maybe MPI (aiming for at least a naive implementation of one denoising algorithm, but will attempt more if possible).
+Finally, we plan to implement at least two more algorithms for image processing (most likely the ones for color conversion and color augmentation) by the end of April.
+In the last week, we plan to just collect numbers, with maybe a few final touches on our implementations if something goes wrong.
+Keeping the above in mind, a tentative weekly schedule is presented in the table below (counting from the submission of this document):
+| Week   | Deadline | Content |
 |--------|-----|--------|
-| ? | ? | ? |
-| ? | ? | ? |
-| ? | ? | ? |
+| 1 | April 7 | Set up the framework for library implementation |
+| 2 | April 14 | Implement one image processing algorithm (denoising), possibly two |
+| 3 | April 21 | Implement second image processing algorithm (color conversion) |
+| 4 | April 28 | Implement third image processing algorithm (color augmentation) |
+| 5 | May 4 | Final touches + Record performance numbers on all implementations. Stretch goal: Combine into a pipeline, or attempt multiple implementations across frameworks |
