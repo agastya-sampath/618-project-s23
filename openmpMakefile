@@ -1,0 +1,30 @@
+OUTPUTDIR := bin/
+
+CFLAGS := -std=c++14 -fvisibility=hidden -lpthread
+
+CFLAGS += -O2 -fopenmp
+
+SOURCES := openmp/*.cpp
+HEADERS := openmp/*.h
+
+TARGETBIN := denoise
+
+.SUFFIXES:
+.PHONY: all clean
+
+all: $(TARGETBIN)
+
+$(TARGETBIN): $(SOURCES) $(HEADERS)
+	$(CXX) -o $@ $(CFLAGS) $(SOURCES) 
+
+format:
+	clang-format -i openmp/*.cpp openmp/*.h
+
+clean:
+	rm -rf ./denoise
+
+FILES = openmp/*.cpp \
+		openmp/*.h
+
+handin.tar: $(FILES)
+	tar cvf handin.tar $(FILES)

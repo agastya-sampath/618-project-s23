@@ -1,0 +1,35 @@
+TARGETBIN := denoise-serial
+OUTPUTDIR := ./
+CXX := g++
+
+# Set CXXFLAGS and LDFLAGS as necessary
+CXXFLAGS := -std=c++14 -Wall -Wextra -Wpedantic -O2 -I./CImg
+LDFLAGS := -lpthread -lm -lX11
+
+SOURCES := $(wildcard serial/*.cpp)
+HEADERS := $(wildcard serial/*.h)
+CIMGHEADER := CImg/CImg.h
+
+OBJECTS := $(SOURCES:%.cpp=%.o)
+
+.PHONY: all clean
+
+all: $(OUTPUTDIR)$(TARGETBIN)
+
+$(OUTPUTDIR)$(TARGETBIN): $(OBJECTS) $(CIMGHEADER)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJECTS) $(LDFLAGS)
+
+%.o: %.cpp $(HEADERS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+clean:
+	rm -rf $(OBJECTS) $(OUTPUTDIR)$(TARGETBIN)
+
+$(OUTPUTDIR):
+	mkdir -p $(OUTPUTDIR)
+
+FILES = serial/*.cpp \
+		serial/*.h
+
+handin.tar: $(FILES)
+	tar cvf handin.tar $(FILES)

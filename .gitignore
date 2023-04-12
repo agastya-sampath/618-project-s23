@@ -1,0 +1,5 @@
+CImg/*
+
+denoise-serial
+*/*.o
+*.png
