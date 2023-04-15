@@ -17,9 +17,10 @@ void OMPMedianFilterDenoise(CImg<unsigned char> &orig, CImg<unsigned char> &res,
     // 1 channel + 3 colors + 0 prefilled
     res.assign(orig.width() - 2 * mid, orig.height() - 2 * mid, 1, 3, 0);
 
-    #pragma omp parallel for 
+    #pragma omp parallel for schedule(dynamic, 8)
     for (int i = mid; i < orig.height() - mid; i++)
     {
+        #pragma omp parallel for schedule(dynamic, 8)
         for (int j = mid; j < orig.width() - mid; j++)
         {
             std::vector<rgb_t> rgbNeighbors;
