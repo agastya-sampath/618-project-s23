@@ -1,27 +1,32 @@
-OUTPUTDIR := bin/
+TARGETBIN := denoise-openmp
+OUTPUTDIR := ./
+CXX := g++
 
-CFLAGS := -std=c++14 -fvisibility=hidden -lpthread
+# Set CXXFLAGS and LDFLAGS as necessary
+CXXFLAGS := -std=c++14 -Wall -Wextra -Wpedantic -O2 -fopenmp -I./CImg
+LDFLAGS := -lpthread -lm -lX11
 
-CFLAGS += -O2 -fopenmp
+SOURCES := $(wildcard openmp/*.cpp)
+HEADERS := $(wildcard openmp/*.h)
+CIMGHEADER := CImg/CImg.h
 
-SOURCES := openmp/*.cpp
-HEADERS := openmp/*.h
+OBJECTS := $(SOURCES:%.cpp=%.o)
 
-TARGETBIN := denoise
-
-.SUFFIXES:
 .PHONY: all clean
 
-all: $(TARGETBIN)
+all: $(OUTPUTDIR)$(TARGETBIN)
 
-$(TARGETBIN): $(SOURCES) $(HEADERS)
-	$(CXX) -o $@ $(CFLAGS) $(SOURCES) 
+$(OUTPUTDIR)$(TARGETBIN): $(OBJECTS) $(CIMGHEADER)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJECTS) $(LDFLAGS)
 
-format:
-	clang-format -i openmp/*.cpp openmp/*.h
+%.o: %.cpp $(HEADERS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -rf ./denoise
+	rm -rf $(OBJECTS) $(OUTPUTDIR)$(TARGETBIN)
+
+$(OUTPUTDIR):
+	mkdir -p $(OUTPUTDIR)
 
 FILES = openmp/*.cpp \
 		openmp/*.h

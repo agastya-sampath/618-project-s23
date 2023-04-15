@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "denoise.h"
+#include "../common.h"
 
 using namespace cimg_library;
 
@@ -77,7 +78,10 @@ int main()
     CImg<unsigned char> orig("input.png"); // Load input image
     CImg<unsigned char> res;               // Define output image
 
+    Timer TotalSimulationTimer;
     SerialMedianFilterDenoise(orig, res, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
+    float totalSimulationTime = TotalSimulationTimer.elapsed();
+    std::cout << "Total simulation time: "<< totalSimulationTime << std::endl;
 
     res.save("output.png"); // Save output image
     return 0;

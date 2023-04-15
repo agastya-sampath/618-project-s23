@@ -3,3 +3,4 @@ CImg/*
 denoise-serial
 */*.o
 *.png
+denoise-openmp

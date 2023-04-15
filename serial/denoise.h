@@ -1,4 +1,4 @@
-// Reference : Assignment 4 code for Vec2 struct
+// Reference : 15618 S23 Assignment 4 code for Vec2 struct
 typedef struct rgb
 {
     float r;
