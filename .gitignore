@@ -4,3 +4,4 @@ denoise-serial
 */*.o
 *.png
 denoise-openmp
+.vscode/*
