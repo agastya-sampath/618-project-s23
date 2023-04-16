@@ -5,3 +5,5 @@ denoise-serial
 *.png
 denoise-openmp
 .vscode/*
+cuda/*
+cudaMakefile

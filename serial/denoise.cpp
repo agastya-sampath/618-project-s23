@@ -82,16 +82,96 @@ void SerialMedianFilterDenoise(CImg<unsigned char> &orig, CImg<unsigned char> &r
     }
 }
 
-int main()
-{
-    CImg<unsigned char> orig("input.png"); // Load input image
-    CImg<unsigned char> res;               // Define output image
+// Define the non-local means denoising function
+void SerialNonLocalMeansDenoising(CImg<unsigned char>& image, CImg<unsigned char>& res, int h, int patchSize, int searchWindowSize) {
 
-    Timer TotalSimulationTimer;
-    SerialMedianFilterDenoise(orig, res, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
-    float totalSimulationTime = TotalSimulationTimer.elapsed();
-    std::cout << "Total simulation time: "<< totalSimulationTime << std::endl;
+    // Calculate the half patch and search window sizes
+    int halfPatchSize = patchSize / 2;
+    int halfSearchWindowSize = searchWindowSize / 2;
 
-    res.save("output.png"); // Save output image
+    res = image;
+
+    // Iterate over each pixel in the image
+    cimg_forXY(image, x, y) {
+
+        // Initialize the pixel values for the red, green, and blue channels
+        rgb_t rgbAccumulate(0.0f, 0.0f, 0.0f);
+        double weightSum = 0.0;
+
+        // Iterate over each pixel in the search window
+        for (int i = x - halfSearchWindowSize; i <= x + halfSearchWindowSize; i++) {
+            for (int j = y - halfSearchWindowSize; j <= y + halfSearchWindowSize; j++) {
+
+                // Make sure the search window pixel is within the image bounds
+                if (i >= 0 && j >= 0 && i < image.width() && j < image.height()) {
+
+                    // Initialize the patch pixel values for the red, green, and blue channels
+                    rgb_t rgbPatch(0.0f, 0.0f, 0.0f);
+
+                    // Iterate over each pixel in the patch window
+                    for (int k = i - halfPatchSize; k <= i + halfPatchSize; k++) {
+                        for (int l = j - halfPatchSize; l <= j + halfPatchSize; l++) {
+
+                            // Make sure the patch window pixel is within the image bounds
+                            if (k >= 0 && l >= 0 && k < image.width() && l < image.height()) {
+
+                                // Calculate the distance between the patch window and the search window pixels
+                                double rDistance = pow(image(k, l, 0) - image(x, y, 0), 2);
+                                double gDistance = pow(image(k, l, 1) - image(x, y, 1), 2);
+                                double bDistance = pow(image(k, l, 2) - image(x, y, 2), 2);
+                                double patchDistance = rDistance + gDistance + bDistance;
+
+                                // Calculate the weight for the patch window pixel
+                                double weight = exp(-patchDistance / (h * h));
+
+                                // Update the patch pixel values
+                                rgbPatch += rgb_t(image(k, l, 0), image(k, l, 1), image(k, l, 2)) * weight;
+
+                                // Update the weight sum
+                                weightSum += weight;
+                            }
+                        }
+                    }
+
+                    // Update the search window pixel values
+                    rgbAccumulate += rgbPatch;
+                }
+            }
+        }
+
+        // Calculate the final pixel values for the red, green, and blue channels
+        res(x, y, 0) = (unsigned char)std::round(rgbAccumulate.r / weightSum);
+        res(x, y, 1) = (unsigned char)std::round(rgbAccumulate.g / weightSum);
+        res(x, y, 2) = (unsigned char)std::round(rgbAccumulate.b / weightSum);
+    }
+}
+
+int main() {
+    // Load input image
+    CImg<unsigned char> input("input.png");
+    CImg<unsigned char> res, res2; // Define output image
+
+    // Set denoising parameters
+    int h = 30;
+    int patchSize = 5;
+    int searchWindowSize = 15;
+    // Also tried : 20, 10, 25
+
+    Timer NLMSimulationTimer;
+    // Apply non-local means denoising
+    SerialNonLocalMeansDenoising(input, res, h, patchSize, searchWindowSize);
+    float nlmSimulationTime = NLMSimulationTimer.elapsed();
+    std::cout << "NLM simulation time: "<< nlmSimulationTime << std::endl;
+
+    // Save denoised image
+    res.save("outputnlm.png");
+
+    Timer MedianSimulationTimer;
+    SerialMedianFilterDenoise(input, res2, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
+    float medianSimulationTime = MedianSimulationTimer.elapsed();
+    std::cout << "Median simulation time: "<< medianSimulationTime << std::endl;
+
+    res2.save("outputmedian.png"); // Save output image
+
     return 0;
 }
