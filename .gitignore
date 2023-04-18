@@ -6,4 +6,7 @@ denoise-serial
 denoise-openmp
 .vscode/*
 cuda/*
-cudaMakefile
+thrust-2.1.0/*
+cub-2.1.0/*
+*.zip
+denoise-cuda
