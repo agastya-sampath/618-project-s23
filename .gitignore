@@ -5,7 +5,6 @@ denoise-serial
 *.png
 denoise-openmp
 .vscode/*
-cuda/*
 thrust-2.1.0/*
 cub-2.1.0/*
 *.zip

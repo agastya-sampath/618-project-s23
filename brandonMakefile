@@ -2,7 +2,7 @@ EXECUTABLE := denoise-cuda
 CU_FILES   := cuda/scan.cu
 CU_DEPS    :=
 CC_FILES   := cuda/denoise.cpp
-
+CIMGHEADER := CImg/CImg.h
 
 all: $(EXECUTABLE)
 
@@ -10,10 +10,10 @@ all: $(EXECUTABLE)
 
 OBJDIR=cuda/objs
 CXX=g++ -m64
-CXXFLAGS=-O3 -Wall
-LDFLAGS=-L/usr/local/cuda-11.7/lib64/ -lcudart
+CXXFLAGS=-O3 -Wall -I./CImg
+LDFLAGS=-L/usr/local/cuda-11.7/lib64/ -lcudart 
 NVCC=nvcc
-NVCCFLAGS=-O3 -m64 --gpu-architecture compute_61 -ccbin /usr/bin/gcc
+NVCCFLAGS=-O3 -m64 --gpu-architecture compute_61 -ccbin /usr/bin/gcc -I./CImg
 
 
 OBJS=$(OBJDIR)/main.o  $(OBJDIR)/denoise.o
@@ -30,7 +30,7 @@ dirs:
 clean:
 		rm -rf $(OBJDIR) *.ppm *~ $(EXECUTABLE)
 
-$(EXECUTABLE): dirs $(OBJS)
+$(EXECUTABLE): dirs $(OBJS) $(CIMGHEADER)
 		$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
 
