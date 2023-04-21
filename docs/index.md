@@ -3,7 +3,7 @@
 - **Authors**: [Agastya Sampath](https://github.com/agastya-sampath) and [Shijie Bian](https://github.com/BrandonBian)
 
 - **Links**:
-  - [Project Proposal](TODO)
+  - [Project Proposal](https://github.com/agastya-sampath/618-project-s23/blob/main/docs/project-proposal.pdf)
   - [Milestone Report](TODO)
   - [Final Report](TODO)
 
