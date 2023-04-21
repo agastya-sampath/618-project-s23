@@ -4,7 +4,7 @@
 
 - **Links**:
   - [Project Proposal](https://github.com/agastya-sampath/618-project-s23/blob/main/docs/project-proposal.pdf)
-  - [Milestone Report](TODO)
+  - [Milestone Report](https://github.com/agastya-sampath/618-project-s23/blob/main/docs/project-milestone.pdf)
   - [Final Report](TODO)
 
 ## Summary
