@@ -184,6 +184,7 @@ void OMPHistogramEqualization(CImg<unsigned char> &img, CImg<unsigned char> &res
     // Compute the average histogram
     CImg<float> hist_avg(bins);
     hist_avg.fill(0);
+    #pragma omp parallel for schedule(dynamic, 64)
     for (int i = 0; i < bins; i++)
     {
         hist_avg(i) = (hist_r(i, 0) + hist_g(i, 0) + hist_b(i, 0)) / (float)(3 * width * height);
@@ -198,14 +199,19 @@ void OMPHistogramEqualization(CImg<unsigned char> &img, CImg<unsigned char> &res
     }
 
     // Apply histogram equalization to each color channel
-    cimg_forXY(img, x, y)
+#pragma omp parallel for schedule(dynamic, 8)
+    for (int y = 0; y < img.height(); ++y)
     {
-        const int r = img(x, y, 0);
-        const int g = img(x, y, 1);
-        const int b = img(x, y, 2);
-        res(x, y, 0) = (unsigned char)(cum_hist(r) * 255.0f);
-        res(x, y, 1) = (unsigned char)(cum_hist(g) * 255.0f);
-        res(x, y, 2) = (unsigned char)(cum_hist(b) * 255.0f);
+#pragma omp parallel for schedule(dynamic, 8)
+        for (int x = 0; x < img.width(); ++x)
+        {
+            const int r = img(x, y, 0);
+            const int g = img(x, y, 1);
+            const int b = img(x, y, 2);
+            res(x, y, 0) = (unsigned char)(cum_hist(r) * 255.0f);
+            res(x, y, 1) = (unsigned char)(cum_hist(g) * 255.0f);
+            res(x, y, 2) = (unsigned char)(cum_hist(b) * 255.0f);
+        }
     }
 }
 
