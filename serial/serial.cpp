@@ -5,7 +5,7 @@
 #include <../CImg/CImg.h>
 #include <vector>
 
-#include "denoise.h"
+#include "serial.h"
 #include "../common.h"
 
 using namespace cimg_library;
@@ -83,7 +83,8 @@ void SerialMedianFilterDenoise(CImg<unsigned char> &orig, CImg<unsigned char> &r
 }
 
 // Define the non-local means denoising function
-void SerialNonLocalMeansDenoising(CImg<unsigned char>& image, CImg<unsigned char>& res, int h, int patchSize, int searchWindowSize) {
+void SerialNonLocalMeansDenoising(CImg<unsigned char> &image, CImg<unsigned char> &res, int h, int patchSize, int searchWindowSize)
+{
 
     // Calculate the half patch and search window sizes
     int halfPatchSize = patchSize / 2;
@@ -92,28 +93,35 @@ void SerialNonLocalMeansDenoising(CImg<unsigned char>& image, CImg<unsigned char
     res = image;
 
     // Iterate over each pixel in the image
-    cimg_forXY(image, x, y) {
+    cimg_forXY(image, x, y)
+    {
 
         // Initialize the pixel values for the red, green, and blue channels
         rgb_t rgbAccumulate(0.0f, 0.0f, 0.0f);
         double weightSum = 0.0;
 
         // Iterate over each pixel in the search window
-        for (int i = x - halfSearchWindowSize; i <= x + halfSearchWindowSize; i++) {
-            for (int j = y - halfSearchWindowSize; j <= y + halfSearchWindowSize; j++) {
+        for (int i = x - halfSearchWindowSize; i <= x + halfSearchWindowSize; i++)
+        {
+            for (int j = y - halfSearchWindowSize; j <= y + halfSearchWindowSize; j++)
+            {
 
                 // Make sure the search window pixel is within the image bounds
-                if (i >= 0 && j >= 0 && i < image.width() && j < image.height()) {
+                if (i >= 0 && j >= 0 && i < image.width() && j < image.height())
+                {
 
                     // Initialize the patch pixel values for the red, green, and blue channels
                     rgb_t rgbPatch(0.0f, 0.0f, 0.0f);
 
                     // Iterate over each pixel in the patch window
-                    for (int k = i - halfPatchSize; k <= i + halfPatchSize; k++) {
-                        for (int l = j - halfPatchSize; l <= j + halfPatchSize; l++) {
+                    for (int k = i - halfPatchSize; k <= i + halfPatchSize; k++)
+                    {
+                        for (int l = j - halfPatchSize; l <= j + halfPatchSize; l++)
+                        {
 
                             // Make sure the patch window pixel is within the image bounds
-                            if (k >= 0 && l >= 0 && k < image.width() && l < image.height()) {
+                            if (k >= 0 && l >= 0 && k < image.width() && l < image.height())
+                            {
 
                                 // Calculate the distance between the patch window and the search window pixels
                                 double rDistance = pow(image(k, l, 0) - image(x, y, 0), 2);
@@ -146,10 +154,60 @@ void SerialNonLocalMeansDenoising(CImg<unsigned char>& image, CImg<unsigned char
     }
 }
 
-int main() {
+void SerialHistogramEqualization(CImg<unsigned char> &img, CImg<unsigned char> &res)
+{
+    res = img;
+    const int width = img.width();
+    const int height = img.height();
+    const int channels = img.spectrum();
+    const int bins = 256;
+
+    // Calculate histogram for each color channel
+    CImg<unsigned int> hist_r(bins), hist_g(bins), hist_b(bins);
+    hist_r.fill(0);
+    hist_g.fill(0);
+    hist_b.fill(0);
+    cimg_forXY(img, x, y)
+    {
+        hist_r(img(x, y, 0), 0)++;
+        hist_g(img(x, y, 1), 0)++;
+        hist_b(img(x, y, 2), 0)++;
+    }
+
+    // Compute the average histogram
+    CImg<float> hist_avg(bins);
+    hist_avg.fill(0);
+    for (int i = 0; i < bins; i++)
+    {
+        hist_avg(i) = (hist_r(i, 0) + hist_g(i, 0) + hist_b(i, 0)) / (float)(3 * width * height);
+    }
+
+    // Calculate cumulative histogram using the average
+    CImg<float> cum_hist(bins);
+    cum_hist(0) = hist_avg(0);
+    for (int i = 1; i < bins; i++)
+    {
+        cum_hist(i) = cum_hist(i - 1) + hist_avg(i);
+    }
+
+    // Apply histogram equalization to each color channel
+    cimg_forXY(img, x, y)
+    {
+        const int r = img(x, y, 0);
+        const int g = img(x, y, 1);
+        const int b = img(x, y, 2);
+        res(x, y, 0) = (unsigned char)(cum_hist(r) * 255.0f);
+        res(x, y, 1) = (unsigned char)(cum_hist(g) * 255.0f);
+        res(x, y, 2) = (unsigned char)(cum_hist(b) * 255.0f);
+    }
+}
+
+int main()
+{
     // Load input image
-    CImg<unsigned char> input("input.png");
-    CImg<unsigned char> res, res2; // Define output image
+    CImg<unsigned char> inputDenoising("inputDenoising.png");
+    CImg<unsigned char> inputHequalization("inputHequalization.bmp");
+    CImg<unsigned char> resmedian, resnlm, resheq, resclahe; // Define output image
 
     // Set denoising parameters
     int h = 30;
@@ -159,19 +217,26 @@ int main() {
 
     Timer NLMSimulationTimer;
     // Apply non-local means denoising
-    SerialNonLocalMeansDenoising(input, res, h, patchSize, searchWindowSize);
+    SerialNonLocalMeansDenoising(inputDenoising, resmedian, h, patchSize, searchWindowSize);
     float nlmSimulationTime = NLMSimulationTimer.elapsed();
-    std::cout << "NLM simulation time: "<< nlmSimulationTime << std::endl;
+    std::cout << "NLM simulation time: " << nlmSimulationTime << std::endl;
 
     // Save denoised image
-    res.save("outputnlm.png");
+    resmedian.save("outputnlm.png");
 
     Timer MedianSimulationTimer;
-    SerialMedianFilterDenoise(input, res2, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
+    SerialMedianFilterDenoise(inputDenoising, resnlm, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
     float medianSimulationTime = MedianSimulationTimer.elapsed();
-    std::cout << "Median simulation time: "<< medianSimulationTime << std::endl;
+    std::cout << "Median simulation time: " << medianSimulationTime << std::endl;
 
-    res2.save("outputmedian.png"); // Save output image
+    resnlm.save("outputmedian.png"); // Save output image
+
+    Timer HEqualizationSimulationTimer;
+    SerialHistogramEqualization(inputHequalization, resheq);
+    float hequalizationSimulationTime = HEqualizationSimulationTimer.elapsed();
+    std::cout << "HEqualization simulation time: " << hequalizationSimulationTime << std::endl;
+
+    resheq.save("outputhequalization.png");
 
     return 0;
 }

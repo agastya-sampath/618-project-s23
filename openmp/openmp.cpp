@@ -5,7 +5,7 @@
 #include <../CImg/CImg.h>
 #include <vector>
 
-#include "denoise.h"
+#include "openmp.h"
 #include "../common.h"
 
 using namespace cimg_library;
@@ -161,11 +161,61 @@ void OMPNonLocalMeansDenoising(CImg<unsigned char> &image, CImg<unsigned char> &
     }
 }
 
+void OMPHistogramEqualization(CImg<unsigned char> &img, CImg<unsigned char> &res)
+{
+    res = img;
+    const int width = img.width();
+    const int height = img.height();
+    const int channels = img.spectrum();
+    const int bins = 256;
+
+    // Calculate histogram for each color channel
+    CImg<unsigned int> hist_r(bins), hist_g(bins), hist_b(bins);
+    hist_r.fill(0);
+    hist_g.fill(0);
+    hist_b.fill(0);
+    cimg_forXY(img, x, y)
+    {
+        hist_r(img(x, y, 0), 0)++;
+        hist_g(img(x, y, 1), 0)++;
+        hist_b(img(x, y, 2), 0)++;
+    }
+
+    // Compute the average histogram
+    CImg<float> hist_avg(bins);
+    hist_avg.fill(0);
+    for (int i = 0; i < bins; i++)
+    {
+        hist_avg(i) = (hist_r(i, 0) + hist_g(i, 0) + hist_b(i, 0)) / (float)(3 * width * height);
+    }
+
+    // Calculate cumulative histogram using the average
+    CImg<float> cum_hist(bins);
+    cum_hist(0) = hist_avg(0);
+    for (int i = 1; i < bins; i++)
+    {
+        cum_hist(i) = cum_hist(i - 1) + hist_avg(i);
+    }
+
+    // Apply histogram equalization to each color channel
+    cimg_forXY(img, x, y)
+    {
+        const int r = img(x, y, 0);
+        const int g = img(x, y, 1);
+        const int b = img(x, y, 2);
+        res(x, y, 0) = (unsigned char)(cum_hist(r) * 255.0f);
+        res(x, y, 1) = (unsigned char)(cum_hist(g) * 255.0f);
+        res(x, y, 2) = (unsigned char)(cum_hist(b) * 255.0f);
+    }
+}
+
+
 int main()
 {
     // Load input image
-    CImg<unsigned char> input("input.png");
-    CImg<unsigned char> res, res2; // Define output image
+    CImg<unsigned char> inputDenoising("inputDenoising.png");
+    CImg<unsigned char> inputHequalization("inputHequalization.bmp");
+    CImg<unsigned char> resmedian, resnlm, resheq, resclahe; // Define output image
 
     // Set denoising parameters
     int h = 30;
@@ -175,19 +225,24 @@ int main()
 
     Timer NLMSimulationTimer;
     // Apply non-local means denoising
-    OMPNonLocalMeansDenoising(input, res, h, patchSize, searchWindowSize);
+    OMPNonLocalMeansDenoising(inputDenoising, resmedian, h, patchSize, searchWindowSize);
     float nlmSimulationTime = NLMSimulationTimer.elapsed();
     std::cout << "NLM simulation time: " << nlmSimulationTime << std::endl;
 
     // Save denoised image
-    res.save("outputnlm.png");
+    resmedian.save("outputnlm.png");
 
     Timer MedianSimulationTimer;
-    OMPMedianFilterDenoise(input, res2, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
+    OMPMedianFilterDenoise(inputDenoising, resnlm, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
     float medianSimulationTime = MedianSimulationTimer.elapsed();
     std::cout << "Median simulation time: " << medianSimulationTime << std::endl;
 
-    res2.save("outputmedian.png"); // Save output image
+    resnlm.save("outputmedian.png"); // Save output image
 
-    return 0;
+    Timer HEqualizationSimulationTimer;
+    OMPHistogramEqualization(inputHequalization, resheq);
+    float hequalizationSimulationTime = HEqualizationSimulationTimer.elapsed();
+    std::cout << "HEqualization simulation time: " << hequalizationSimulationTime << std::endl;
+
+    resheq.save("outputhequalization.png");
 }

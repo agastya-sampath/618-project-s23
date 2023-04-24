@@ -3,6 +3,7 @@ CImg/*
 denoise-serial
 */*.o
 *.png
+*.bmp
 denoise-openmp
 .vscode/*
 cuda/*
@@ -10,3 +11,5 @@ thrust-2.1.0/*
 cub-2.1.0/*
 *.zip
 denoise-cuda
+pipl-openmp
+pipl-serial

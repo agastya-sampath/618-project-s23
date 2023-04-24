@@ -1,4 +1,4 @@
-TARGETBIN := denoise-openmp
+TARGETBIN := pipl-openmp
 OUTPUTDIR := ./
 CXX := g++
 

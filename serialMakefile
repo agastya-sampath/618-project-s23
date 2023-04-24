@@ -1,4 +1,4 @@
-TARGETBIN := denoise-serial
+TARGETBIN := pipl-serial
 OUTPUTDIR := ./
 CXX := g++
 
