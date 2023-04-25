@@ -205,8 +205,8 @@ void SerialHistogramEqualization(CImg<unsigned char> &img, CImg<unsigned char> &
 int main()
 {
     // Load input image
-    CImg<unsigned char> inputDenoising("inputDenoising.png");
-    CImg<unsigned char> inputHequalization("inputHequalization.bmp");
+    CImg<unsigned char> inputDenoising("images-input/inputDenoising.png");
+    CImg<unsigned char> inputHequalization("images-input/inputHequalization.bmp");
     CImg<unsigned char> resmedian, resnlm, resheq, resclahe; // Define output image
 
     // Set denoising parameters
@@ -222,21 +222,21 @@ int main()
     std::cout << "NLM simulation time: " << nlmSimulationTime << std::endl;
 
     // Save denoised image
-    resmedian.save("outputnlm.png");
+    resmedian.save("images-output/denoise-nlm.png");
 
     Timer MedianSimulationTimer;
     SerialMedianFilterDenoise(inputDenoising, resnlm, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
     float medianSimulationTime = MedianSimulationTimer.elapsed();
     std::cout << "Median simulation time: " << medianSimulationTime << std::endl;
 
-    resnlm.save("outputmedian.png"); // Save output image
+    resnlm.save("images-output/denoise-median.png"); // Save output image
 
     Timer HEqualizationSimulationTimer;
     SerialHistogramEqualization(inputHequalization, resheq);
     float hequalizationSimulationTime = HEqualizationSimulationTimer.elapsed();
     std::cout << "HEqualization simulation time: " << hequalizationSimulationTime << std::endl;
 
-    resheq.save("outputhequalization.png");
+    resheq.save("images-output/enhance-equalization.png");
 
     return 0;
 }

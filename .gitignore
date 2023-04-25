@@ -2,8 +2,6 @@ CImg/*
 
 denoise-serial
 */*.o
-*.png
-*.bmp
 denoise-openmp
 .vscode/*
 cuda/*
