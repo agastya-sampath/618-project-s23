@@ -202,11 +202,121 @@ void SerialHistogramEqualization(CImg<unsigned char> &img, CImg<unsigned char> &
     }
 }
 
+void SerialCLAHE(CImg<unsigned char> &img, CImg<unsigned char> &res, int clipLimit, int gridSize)
+{
+    res = img;
+    const int width = img.width();
+    const int height = img.height();
+    const int channels = img.spectrum();
+    const int bins = 256;
+
+    // Calculate histogram for each color channel
+    CImg<unsigned int> hist_r(bins), hist_g(bins), hist_b(bins);
+    hist_r.fill(0);
+    hist_g.fill(0);
+    hist_b.fill(0);
+    cimg_forXY(img, x, y)
+    {
+        hist_r(img(x, y, 0), 0)++;
+        hist_g(img(x, y, 1), 0)++;
+        hist_b(img(x, y, 2), 0)++;
+    }
+
+    // Compute the average histogram
+    CImg<float> hist_avg(bins);
+    hist_avg.fill(0);
+    for (int i = 0; i < bins; i++)
+    {
+        hist_avg(i) = (hist_r(i, 0) + hist_g(i, 0) + hist_b(i, 0)) / (float)(3 * width * height);
+    }
+
+    // Calculate cumulative histogram using the average
+    CImg<float> cum_hist(bins);
+    cum_hist(0) = hist_avg(0);
+    for (int i = 1; i < bins; i++)
+    {
+        cum_hist(i) = cum_hist(i - 1) + hist_avg(i);
+    }
+
+    // Calculate the maximum allowed slope
+    const float max_slope = clipLimit / (float)(gridSize * gridSize);
+
+    // Calculate the half window size for the local histograms
+    const int half_win = gridSize / 2;
+
+    // Loop over image and apply CLAHE to each window
+    cimg_forXY(img, x, y)
+    {
+        // Calculate the range of pixels within the current window
+        const int x_min = std::max(0, x - half_win);
+        const int x_max = std::min(width - 1, x + half_win);
+        const int y_min = std::max(0, y - half_win);
+        const int y_max = std::min(height - 1, y + half_win);
+
+        // Compute the histogram for the current window
+        CImg<unsigned int> local_hist_r(bins), local_hist_g(bins), local_hist_b(bins);
+        local_hist_r.fill(0);
+        local_hist_g.fill(0);
+        local_hist_b.fill(0);
+        for (int i = x_min; i <= x_max; i++)
+        {
+            for (int j = y_min; j <= y_max; j++)
+            {
+                local_hist_r(img(i, j, 0), 0)++;
+                local_hist_g(img(i, j, 1), 0)++;
+                local_hist_b(img(i, j, 2), 0)++;
+            }
+        }
+
+        // Calculate the cumulative histogram for the current window
+        CImg<float> local_cum_hist_r(bins), local_cum_hist_g(bins), local_cum_hist_b(bins);
+        local_cum_hist_r(0) = local_hist_r(0, 0) / (float)(gridSize * gridSize);
+        local_cum_hist_g(0) = local_hist_g(0, 0) / (float)(gridSize * gridSize);
+        local_cum_hist_b(0) = local_hist_b(0, 0) / (float)(gridSize * gridSize);
+        for (int i = 1; i < bins; i++)
+        {
+            local_cum_hist_r(i) = local_cum_hist_r(i - 1) + local_hist_r(i, 0) / (float)(gridSize * gridSize);
+            local_cum_hist_g(i) = local_cum_hist_g(i - 1) + local_hist_g(i, 0) / (float)(gridSize * gridSize);
+            local_cum_hist_b(i) = local_cum_hist_b(i - 1) + local_hist_b(i, 0) / (float)(gridSize * gridSize);
+        }
+
+        // Continue
+        // Apply CLAHE to the current window
+        for (int i = x_min; i <= x_max; i++)
+        {
+            for (int j = y_min; j <= y_max; j++)
+            {
+                // Calculate the equalized value for each color channel
+                const float r_val = img(i, j, 0);
+                const float g_val = img(i, j, 1);
+                const float b_val = img(i, j, 2);
+                const int r_index = std::min((int)std::round(r_val), bins - 1);
+                const int g_index = std::min((int)std::round(g_val), bins - 1);
+                const int b_index = std::min((int)std::round(b_val), bins - 1);
+                const float r_cum_hist = local_cum_hist_r(r_index);
+                const float g_cum_hist = local_cum_hist_g(g_index);
+                const float b_cum_hist = local_cum_hist_b(b_index);
+                const float r_min_cum_hist = cum_hist(r_index) - max_slope;
+                const float g_min_cum_hist = cum_hist(g_index) - max_slope;
+                const float b_min_cum_hist = cum_hist(b_index) - max_slope;
+                const float r_new_val = (r_cum_hist - r_min_cum_hist) / (1 - max_slope) * (bins - 1);
+                const float g_new_val = (g_cum_hist - g_min_cum_hist) / (1 - max_slope) * (bins - 1);
+                const float b_new_val = (b_cum_hist - b_min_cum_hist) / (1 - max_slope) * (bins - 1);
+
+                // Set the equalized value for each color channel
+                res(i, j, 0) = (unsigned char)std::round(r_new_val);
+                res(i, j, 1) = (unsigned char)std::round(g_new_val);
+                res(i, j, 2) = (unsigned char)std::round(b_new_val);
+            }
+        }
+    }
+}
+
 int main()
 {
     // Load input image
     CImg<unsigned char> inputDenoising("images-input/inputDenoising.png");
-    CImg<unsigned char> inputHequalization("images-input/inputHequalization.bmp");
+    CImg<unsigned char> inputEnhancing("images-input/inputHequalization.bmp");
     CImg<unsigned char> resmedian, resnlm, resheq, resclahe; // Define output image
 
     // Set denoising parameters
@@ -214,6 +324,10 @@ int main()
     int patchSize = 5;
     int searchWindowSize = 15;
     // Also tried : 20, 10, 25
+
+    //////////////////////
+    /* - Denoise: NLM - */
+    //////////////////////
 
     Timer NLMSimulationTimer;
     // Apply non-local means denoising
@@ -224,6 +338,10 @@ int main()
     // Save denoised image
     resmedian.save("images-output/denoise-nlm.png");
 
+    ////////////////////////////////
+    /* - Denoise: Median Filter - */
+    ////////////////////////////////
+
     Timer MedianSimulationTimer;
     SerialMedianFilterDenoise(inputDenoising, resnlm, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
     float medianSimulationTime = MedianSimulationTimer.elapsed();
@@ -231,12 +349,23 @@ int main()
 
     resnlm.save("images-output/denoise-median.png"); // Save output image
 
+    /////////////////////////////////////////
+    /* - Enhance: Histogram Equalization - */
+    /////////////////////////////////////////
+
     Timer HEqualizationSimulationTimer;
-    SerialHistogramEqualization(inputHequalization, resheq);
+    SerialHistogramEqualization(inputEnhancing, resheq);
     float hequalizationSimulationTime = HEqualizationSimulationTimer.elapsed();
     std::cout << "HEqualization simulation time: " << hequalizationSimulationTime << std::endl;
 
     resheq.save("images-output/enhance-equalization.png");
+
+    ////////////////////////
+    /* - Enhance: CLAHE - */
+    ////////////////////////
+
+    SerialCLAHE(inputEnhancing, resclahe, 40, 8);
+    resclahe.save("images-output/enhance-clahe.png");
 
     return 0;
 }
