@@ -15,153 +15,102 @@
 
 #include "denoise.h"
 
-__global__ void cudaMedianFilterDenoiseKernel(
-    unsigned char *orig,
-    int width, int height,
-    int mid,
-    int k,
-    int n_neighbors,
-    int median,
-    int *indices,
-    int *x_offsets,
-    int *y_offsets,
-    unsigned char *rgbNeighbors,
-    int *rValues,
-    int *gValues,
-    int *bValues,
-    int *rAccumulate,
-    int *gAccumulate,
-    int *bAccumulate)
-{
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int index = row * width + col;
-
-    if (row >= height || col >= width)
-        return;
-
-    int x, y, nIndex, nIndexRGB;
-    int r, g, b;
-    int rVal, gVal, bVal;
-
-    // Loop through all the neighbors
-    for (int i = 0; i < n_neighbors; ++i)
-    {
-        x = col + x_offsets[i];
-        y = row + y_offsets[i];
-
-        if (x < 0 || y < 0 || x >= width || y >= height)
-            continue;
-
-        nIndex = y * width + x;
-        nIndexRGB = nIndex * 3;
-
-        r = orig[nIndexRGB];
-        g = orig[nIndexRGB + 1];
-        b = orig[nIndexRGB + 2];
-
-        rValues[i] = r;
-        gValues[i] = g;
-        bValues[i] = b;
-        indices[i] = i;
-    }
-
-    // Sort the RGB values
-    thrust::sort_by_key(thrust::device, indices, indices + n_neighbors, rgbNeighbors);
-
-    // Compute the median RGB value
-    rVal = rgbNeighbors[median];
-    gVal = rgbNeighbors[median + k];
-    bVal = rgbNeighbors[median + 2 * k];
-
-    // Update the result
-    rAccumulate[index] = rVal;
-    gAccumulate[index] = gVal;
-    bAccumulate[index] = bVal;
-}
-
-void CUDAMedianFilterDenoise(const unsigned char *orig_data, unsigned char *res, int orig_width, int orig_height, int orig_size,
-                             int k, int perc)
+__global__ void MedianFilterDenoiseKernel(unsigned char *orig, unsigned char *res, int width, int height, int k, int perc)
 {
     int mid = (k - 1) / 2;
-    int size = (orig_width - 2 * mid) * (orig_height - 2 * mid);
 
-    // Create device vectors
-    thrust::device_vector<rgb_t> d_rgbNeighbors(k * k * size);
-    thrust::device_vector<float> d_rValues(k * k * size);
-    thrust::device_vector<float> d_gValues(k * k * size);
-    thrust::device_vector<float> d_bValues(k * k * size);
-    thrust::device_vector<float> d_rAccumulate(size);
-    thrust::device_vector<float> d_gAccumulate(size);
-    thrust::device_vector<float> d_bAccumulate(size);
+    // Calculate the output indices for this thread
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    // Copy original image to device memory
-    thrust::device_vector<unsigned char> d_orig(orig_data, orig_data + orig_size);
-
-    // Initialize indices vector
-    thrust::device_vector<int> indices(k * k);
-    thrust::sequence(indices.begin(), indices.end());
-
-    // Compute offsets for neighbor pixels
-    thrust::device_vector<int> x_offsets(k * k);
-    thrust::device_vector<int> y_offsets(k * k);
-    for (int x = -mid, idx = 0; x <= mid; x++)
+    if (x >= mid && x < width - mid && y >= mid && y < height - mid)
     {
-        for (int y = -mid; y <= mid; y++, idx++)
+        int idx = (y * width + x) * 3; // index of the current pixel in the original image
+
+        thrust::device_vector<rgb_t> rgbNeighbors;
+        rgb_t rgbAccumulate(0.0f, 0.0f, 0.0f);
+
+        // Find neighbors of current pixel within filter range
+        for (int i = -mid; i <= mid; i++)
         {
-            x_offsets[idx] = x;
-            y_offsets[idx] = y;
+            for (int j = -mid; j <= mid; j++)
+            {
+                int neighborIdx = ((y + i) * width + (x + j)) * 3; // index of the current neighbor in the original image
+                rgbNeighbors.push_back(rgb_t(orig[neighborIdx], orig[neighborIdx + 1], orig[neighborIdx + 2]));
+            }
         }
-    }
 
-    // Compute the median index
-    int median = (k % 2) ? (k * k - 1) / 2 : k * k / 2;
+        // Find median pixel
+        int median = (k % 2) ? (k * k - 1) / 2 : k * k / 2;
 
-    // Compute the number of neighbors to consider
-    int n_neighbors = (k * k) / 2 * (int(perc) / 100);
+        // Number of neighbors (filter size * the percentage scaling)
+        int n_neighbors = (k * k) / 2 * (int(perc) / 100);
 
-    // Launch CUDA kernel
-    int threadsPerBlock = 256;
-    int blocksPerGrid = (size + threadsPerBlock - 1) / threadsPerBlock;
-    cudaMedianFilterDenoiseKernel<<<blocksPerGrid, threadsPerBlock>>>(
-        thrust::raw_pointer_cast(d_orig.data()),
-        orig_width, orig_height,
-        mid,
-        k,
-        n_neighbors,
-        median,
-        thrust::raw_pointer_cast(indices.data()),
-        thrust::raw_pointer_cast(x_offsets.data()),
-        thrust::raw_pointer_cast(y_offsets.data()),
-        thrust::raw_pointer_cast(d_rgbNeighbors.data()),
-        thrust::raw_pointer_cast(d_rValues.data()),
-        thrust::raw_pointer_cast(d_gValues.data()),
-        thrust::raw_pointer_cast(d_bValues.data()),
-        thrust::raw_pointer_cast(d_rAccumulate.data()),
-        thrust::raw_pointer_cast(d_gAccumulate.data()),
-        thrust::raw_pointer_cast(d_bAccumulate.data()));
-
-    // Wait for kernel to finish
-    cudaDeviceSynchronize();
-
-    // Compute final result
-    thrust::device_vector<unsigned char> d_res(size * 3);
-    thrust::transform(d_rAccumulate.begin(), d_rAccumulate.end(), d_gAccumulate.begin(), d_bAccumulate.begin(), d_res.begin() + 0, rgbToUnsignedChar());
-    thrust::transform(d_gAccumulate.begin(), d_gAccumulate.end(), d_gAccumulate.begin(), d_res.begin() + 1, rgbToUnsignedChar());
-    thrust::transform(d_bAccumulate.begin(), d_bAccumulate.end(), d_bAccumulate.begin(), d_res.begin() + 2, rgbToUnsignedChar());
-
-    // Copy final result back to host memory
-    thrust::host_vector<unsigned char> h_res = d_res;
-    res.assign(orig_width - 2 * mid, orig_height - 2 * mid, 1, 3, 0);
-
-    for (int i = mid; i < orig_height - mid; i++) // No padding
-    {
-        for (int j = mid; j < orig_width - mid; j++) // No padding
+        for (int colors = 0; colors < 3; colors++)
         {
-            int offset = (i - mid) * (orig_width - 2 * mid) * 3 + (j - mid) * 3;
-            res(j - mid, i - mid, 0, 0) = h_res[offset];
-            res(j - mid, i - mid, 0, 1) = h_res[offset + 1];
-            res(j - mid, i - mid, 0, 2) = h_res[offset + 2];
+            // Sort values
+            if (colors == 0)
+            {
+                thrust::sort(rgbNeighbors.begin(), rgbNeighbors.end(), compareR);
+                for (int i = -n_neighbors; i <= n_neighbors; i++)
+                {
+                    rgb_t element = rgbNeighbors[median + i];
+                    rgbAccumulate.r += element.r;
+                }
+            }
+            else if (colors == 1)
+            {
+                thrust::sort(rgbNeighbors.begin(), rgbNeighbors.end(), compareG);
+                for (int i = -n_neighbors; i <= n_neighbors; i++)
+                {
+                    rgb_t element = rgbNeighbors[median + i];
+                    rgbAccumulate.g += element.g;
+                }
+            }
+            else
+            {
+                thrust::sort(rgbNeighbors.begin(), rgbNeighbors.end(), compareB);
+                for (int i = -n_neighbors; i <= n_neighbors; i++)
+                {
+                    rgb_t element = rgbNeighbors[median + i];
+                    rgbAccumulate.b += element.b;
+                }
+            }
         }
+
+        // Average
+        rgbAccumulate *= rgb_t(1. / float(2 * n_neighbors + 1), 1. / float(2 * n_neighbors + 1), 1. / float(2 * n_neighbors + 1));
+
+        // Assign to result
+        int resIdx = ((y - mid) * (width - 2 * mid) + (x - mid)) * 3; // index of the current pixel in the result image
+        res[resIdx] = rgbAccumulate.r;
+        res[resIdx + 1] = rgbAccumulate.g;
+        res[resIdx + 2] = rgbAccumulate.b;
     }
+}
+
+void CUDAMedianFilterDenoise(const unsigned char *orig_data, unsigned char *res, int orig_width, int orig_height, int orig_size, int k, int perc)
+{
+    // Calculate grid and block dimensions
+    dim3 threadsPerBlock(16, 16);
+    dim3 numBlocks((orig_width + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                   (orig_height + threadsPerBlock.y - 1) / threadsPerBlock.y);
+
+    // Allocate device memory for input and output data
+    unsigned char *d_orig, *d_res;
+    cudaMalloc((void **)&d_orig, orig_size);
+    cudaMalloc((void **)&d_res, orig_size);
+
+    // Copy input data from host to device
+    cudaMemcpy(d_orig, orig_data, orig_size, cudaMemcpyHostToDevice);
+
+    // Call kernel function
+    MedianFilterDenoiseKernel<<<numBlocks, threadsPerBlock>>>(d_orig, d_res, orig_width, orig_height, k, perc);
+
+    // Copy output data from device to host
+    cudaMemcpy(res, d_res, orig_size, cudaMemcpyDeviceToHost);
+
+    // Free device memory
+    cudaFree(d_orig);
+    cudaFree(d_res);
 }

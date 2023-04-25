@@ -1,6 +1,7 @@
 #include <../CImg/CImg.h>
 #include <iostream>
 #include "../common.h"
+#include "denoise.h"
 
 void CUDAMedianFilterDenoise(const unsigned char *orig_data, unsigned char *res, int orig_width, int orig_height,
                              int orig_size, int k, int perc);
@@ -24,6 +25,6 @@ void cudaDenoise(const char *filename, int k, int perc)
 
 int main()
 {
-    std::cout << "Hello World!" << std::endl;
+    cudaDenoise("input.png", 5, 50);
     return 0;
 }
