@@ -1,7 +1,7 @@
 CImg/*
 
 denoise-serial
-*/*.o
+*.o
 *.png
 denoise-openmp
 .vscode/*
