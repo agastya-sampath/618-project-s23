@@ -222,20 +222,16 @@ void SerialCLAHE(CImg<unsigned char> &img, CImg<unsigned char> &res, int clipLim
         hist_b(img(x, y, 2), 0)++;
     }
 
-    // Compute the average histogram
-    CImg<float> hist_avg(bins);
-    hist_avg.fill(0);
-    for (int i = 0; i < bins; i++)
-    {
-        hist_avg(i) = (hist_r(i, 0) + hist_g(i, 0) + hist_b(i, 0)) / (float)(3 * width * height);
-    }
-
-    // Calculate cumulative histogram using the average
-    CImg<float> cum_hist(bins);
-    cum_hist(0) = hist_avg(0);
+    // Calculate cumulative histogram for each channel
+    CImg<float> cum_hist_r(bins), cum_hist_g(bins), cum_hist_b(bins);
+    cum_hist_r(0) = hist_r(0, 0) / (float)(width * height);
+    cum_hist_g(0) = hist_g(0, 0) / (float)(width * height);
+    cum_hist_b(0) = hist_b(0, 0) / (float)(width * height);
     for (int i = 1; i < bins; i++)
     {
-        cum_hist(i) = cum_hist(i - 1) + hist_avg(i);
+        cum_hist_r(i) = cum_hist_r(i - 1) + hist_r(i, 0) / (float)(width * height);
+        cum_hist_g(i) = cum_hist_g(i - 1) + hist_g(i, 0) / (float)(width * height);
+        cum_hist_b(i) = cum_hist_b(i - 1) + hist_b(i, 0) / (float)(width * height);
     }
 
     // Calculate the maximum allowed slope
@@ -244,9 +240,8 @@ void SerialCLAHE(CImg<unsigned char> &img, CImg<unsigned char> &res, int clipLim
     // Calculate the half window size for the local histograms
     const int half_win = gridSize / 2;
 
-    // Loop over image and apply CLAHE to each window
-    cimg_forXY(img, x, y)
-    {
+    // Apply CLAHE to each window
+    cimg_forXY(img, x, y) {
         // Calculate the range of pixels within the current window
         const int x_min = std::max(0, x - half_win);
         const int x_max = std::min(width - 1, x + half_win);
@@ -258,55 +253,56 @@ void SerialCLAHE(CImg<unsigned char> &img, CImg<unsigned char> &res, int clipLim
         local_hist_r.fill(0);
         local_hist_g.fill(0);
         local_hist_b.fill(0);
-        for (int i = x_min; i <= x_max; i++)
-        {
-            for (int j = y_min; j <= y_max; j++)
-            {
+        for (int i = x_min; i <= x_max; i++) {
+            for (int j = y_min; j <= y_max; j++) {
                 local_hist_r(img(i, j, 0), 0)++;
                 local_hist_g(img(i, j, 1), 0)++;
                 local_hist_b(img(i, j, 2), 0)++;
             }
         }
 
-        // Calculate the cumulative histogram for the current window
-        CImg<float> local_cum_hist_r(bins), local_cum_hist_g(bins), local_cum_hist_b(bins);
-        local_cum_hist_r(0) = local_hist_r(0, 0) / (float)(gridSize * gridSize);
-        local_cum_hist_g(0) = local_hist_g(0, 0) / (float)(gridSize * gridSize);
-        local_cum_hist_b(0) = local_hist_b(0, 0) / (float)(gridSize * gridSize);
-        for (int i = 1; i < bins; i++)
-        {
-            local_cum_hist_r(i) = local_cum_hist_r(i - 1) + local_hist_r(i, 0) / (float)(gridSize * gridSize);
-            local_cum_hist_g(i) = local_cum_hist_g(i - 1) + local_hist_g(i, 0) / (float)(gridSize * gridSize);
-            local_cum_hist_b(i) = local_cum_hist_b(i - 1) + local_hist_b(i, 0) / (float)(gridSize * gridSize);
+        // Calculate the cumulative histogram for the current window for each channel
+        CImg<float> cum_hist_r_local(bins), cum_hist_g_local(bins), cum_hist_b_local(bins);
+        cum_hist_r_local(0) = local_hist_r(0, 0) / (float)(gridSize * gridSize);
+        cum_hist_g_local(0) = local_hist_g(0, 0) / (float)(gridSize * gridSize);
+        cum_hist_b_local(0) = local_hist_b(0, 0) / (float)(gridSize * gridSize);
+        for (int i = 1; i < bins; i++) {
+            cum_hist_r_local(i) = cum_hist_r_local(i - 1) + local_hist_r(i, 0) / (float)(gridSize * gridSize);
+            cum_hist_g_local(i) = cum_hist_g_local(i - 1) + local_hist_g(i, 0) / (float)(gridSize * gridSize);
+            cum_hist_b_local(i) = cum_hist_b_local(i - 1) + local_hist_b(i, 0) / (float)(gridSize * gridSize);
         }
 
-        // Continue
-        // Apply CLAHE to the current window
-        for (int i = x_min; i <= x_max; i++)
-        {
-            for (int j = y_min; j <= y_max; j++)
-            {
-                // Calculate the equalized value for each color channel
-                const float r_val = img(i, j, 0);
-                const float g_val = img(i, j, 1);
-                const float b_val = img(i, j, 2);
-                const int r_index = std::min((int)std::round(r_val), bins - 1);
-                const int g_index = std::min((int)std::round(g_val), bins - 1);
-                const int b_index = std::min((int)std::round(b_val), bins - 1);
-                const float r_cum_hist = local_cum_hist_r(r_index);
-                const float g_cum_hist = local_cum_hist_g(g_index);
-                const float b_cum_hist = local_cum_hist_b(b_index);
-                const float r_min_cum_hist = cum_hist(r_index) - max_slope;
-                const float g_min_cum_hist = cum_hist(g_index) - max_slope;
-                const float b_min_cum_hist = cum_hist(b_index) - max_slope;
-                const float r_new_val = (r_cum_hist - r_min_cum_hist) / (1 - max_slope) * (bins - 1);
-                const float g_new_val = (g_cum_hist - g_min_cum_hist) / (1 - max_slope) * (bins - 1);
-                const float b_new_val = (b_cum_hist - b_min_cum_hist) / (1 - max_slope) * (bins - 1);
+        // Calculate the equalized value for each color channel separately
+        for (int c = 0; c < channels; c++) {
+            // Get the local histogram and cumulative histogram for the current channel
+            CImg<unsigned int> local_hist;
+            CImg<float> cum_hist_local;
+            if (c == 0) {
+                local_hist = local_hist_r;
+                cum_hist_local = cum_hist_r_local;
+            }
+            else if (c == 1) {
+                local_hist = local_hist_g;
+                cum_hist_local = cum_hist_g_local;
+            }
+            else {
+                local_hist = local_hist_b;
+                cum_hist_local = cum_hist_b_local;
+            }
 
-                // Set the equalized value for each color channel
-                res(i, j, 0) = (unsigned char)std::round(r_new_val);
-                res(i, j, 1) = (unsigned char)std::round(g_new_val);
-                res(i, j, 2) = (unsigned char)std::round(b_new_val);
+            // Calculate the equalized value for each pixel in the current channel
+            for (int x_res = x_min; x_res <= x_max; x_res++) {
+                for (int y_res = y_min; y_res <= y_max; y_res++) {
+                    // Get the original pixel
+                    const int x_orig = std::max(0, std::min(width - 1, x_res));
+                    const int y_orig = std::max(0, std::min(height - 1, y_res));
+                    const int val_orig = img(x_orig, y_orig, c);
+
+                    // Calculate the equalized value
+                    const float cum_prob = cum_hist_local(val_orig);
+                    const float eq_val = std::max(0.0f, std::min(255.0f, bins * (cum_prob - max_slope) / (1 - max_slope)));
+                    res(x_res, y_res, c) = (unsigned char)eq_val;
+                }
             }
         }
     }
@@ -316,7 +312,7 @@ int main()
 {
     // Load input image
     CImg<unsigned char> inputDenoising("images-input/inputDenoising.png");
-    CImg<unsigned char> inputEnhancing("images-input/inputHequalization.bmp");
+    CImg<unsigned char> inputEnhancing("images-input/inputHequalization2.bmp");
     CImg<unsigned char> resmedian, resnlm, resheq, resclahe; // Define output image
 
     // Set denoising parameters
@@ -364,7 +360,7 @@ int main()
     /* - Enhance: CLAHE - */
     ////////////////////////
 
-    SerialCLAHE(inputEnhancing, resclahe, 40, 8);
+    SerialCLAHE(inputEnhancing, resclahe, 2, 64);
     resclahe.save("images-output/enhance-clahe.png");
 
     return 0;
