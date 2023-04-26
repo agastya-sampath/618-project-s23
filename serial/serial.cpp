@@ -210,30 +210,6 @@ void SerialCLAHE(CImg<unsigned char> &img, CImg<unsigned char> &res, int clipLim
     const int channels = img.spectrum();
     const int bins = 256;
 
-    // Calculate histogram for each color channel
-    CImg<unsigned int> hist_r(bins), hist_g(bins), hist_b(bins);
-    hist_r.fill(0);
-    hist_g.fill(0);
-    hist_b.fill(0);
-    cimg_forXY(img, x, y)
-    {
-        hist_r(img(x, y, 0), 0)++;
-        hist_g(img(x, y, 1), 0)++;
-        hist_b(img(x, y, 2), 0)++;
-    }
-
-    // Calculate cumulative histogram for each channel
-    CImg<float> cum_hist_r(bins), cum_hist_g(bins), cum_hist_b(bins);
-    cum_hist_r(0) = hist_r(0, 0) / (float)(width * height);
-    cum_hist_g(0) = hist_g(0, 0) / (float)(width * height);
-    cum_hist_b(0) = hist_b(0, 0) / (float)(width * height);
-    for (int i = 1; i < bins; i++)
-    {
-        cum_hist_r(i) = cum_hist_r(i - 1) + hist_r(i, 0) / (float)(width * height);
-        cum_hist_g(i) = cum_hist_g(i - 1) + hist_g(i, 0) / (float)(width * height);
-        cum_hist_b(i) = cum_hist_b(i - 1) + hist_b(i, 0) / (float)(width * height);
-    }
-
     // Calculate the maximum allowed slope
     const float max_slope = clipLimit / (float)(gridSize * gridSize);
 
@@ -272,23 +248,14 @@ void SerialCLAHE(CImg<unsigned char> &img, CImg<unsigned char> &res, int clipLim
             cum_hist_b_local(i) = cum_hist_b_local(i - 1) + local_hist_b(i, 0) / (float)(gridSize * gridSize);
         }
 
+        CImg<float> cum_hist_avg_local(bins); 
+        cum_hist_avg_local = (cum_hist_r_local + cum_hist_g_local + cum_hist_b_local)/3;
+
         // Calculate the equalized value for each color channel separately
         for (int c = 0; c < channels; c++) {
-            // Get the local histogram and cumulative histogram for the current channel
-            CImg<unsigned int> local_hist;
+            // Get local cumulative histogram for the current channel
             CImg<float> cum_hist_local;
-            if (c == 0) {
-                local_hist = local_hist_r;
-                cum_hist_local = cum_hist_r_local;
-            }
-            else if (c == 1) {
-                local_hist = local_hist_g;
-                cum_hist_local = cum_hist_g_local;
-            }
-            else {
-                local_hist = local_hist_b;
-                cum_hist_local = cum_hist_b_local;
-            }
+            cum_hist_local = cum_hist_avg_local;
 
             // Calculate the equalized value for each pixel in the current channel
             for (int x_res = x_min; x_res <= x_max; x_res++) {
@@ -360,7 +327,11 @@ int main()
     /* - Enhance: CLAHE - */
     ////////////////////////
 
-    SerialCLAHE(inputEnhancing, resclahe, 2, 64);
+    Timer CLAHESimulationTimer;
+    SerialCLAHE(inputEnhancing, resclahe, 2, 96);
+    float claheSimulationTime = CLAHESimulationTimer.elapsed();
+    std::cout << "CLAHE simulation time: " << claheSimulationTime << std::endl;
+
     resclahe.save("images-output/enhance-clahe.png");
 
     return 0;
