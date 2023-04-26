@@ -1,6 +1,6 @@
-EXECUTABLE := denoise-cuda
+EXECUTABLE := pipl-cuda
 CIMGHEADER := CImg/CImg.h
-HEADER     := cuda/cuda.h
+HEADER     := cuda/main.h
 
 all: $(EXECUTABLE)
 
@@ -14,7 +14,7 @@ NVCC=nvcc
 NVCCFLAGS=-O3 -m64 --gpu-architecture compute_61 -ccbin /usr/bin/gcc -I./CImg -I./cuda
 
 
-OBJS=$(OBJDIR)/main.o  $(OBJDIR)/cuda.o
+OBJS=$(OBJDIR)/main.o $(OBJDIR)/cuda.o
 
 .PHONY: dirs clean
 
