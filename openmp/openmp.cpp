@@ -166,7 +166,6 @@ void OMPHistogramEqualization(CImg<unsigned char> &img, CImg<unsigned char> &res
     res = img;
     const int width = img.width();
     const int height = img.height();
-    const int channels = img.spectrum();
     const int bins = 256;
 
     // Calculate histogram for each color channel
@@ -306,7 +305,6 @@ void OMPRGBtoYCbCr(CImg<unsigned char> &img, CImg<unsigned char> &res)
     res = img;
     const int w = img.width();
     const int h = img.height();
-    const int c = img.spectrum();
 
 #pragma omp parallel for schedule(dynamic, 8)
     for (int i = 0; i < w; i++)
@@ -337,7 +335,6 @@ void OMPYCbCrtoRGB(CImg<unsigned char> &img, CImg<unsigned char> &res)
     res = img;
     const int w = img.width();
     const int h = img.height();
-    const int c = img.spectrum();
 
 #pragma omp parallel for schedule(dynamic, 8)
     for (int i = 0; i < w; i++)
@@ -364,86 +361,226 @@ void OMPYCbCrtoRGB(CImg<unsigned char> &img, CImg<unsigned char> &res)
 
 int main()
 {
-    // Load input image
-    CImg<unsigned char> inputDenoising("images-input/inputDenoising.png");
-    CImg<unsigned char> inputEnhancing("images-input/inputHequalization2.bmp");
-    CImg<unsigned char> inputConversion("images-input/inputConversion.bmp");
-    CImg<unsigned char> resmedian, resnlm, resheq, resclahe, resgray, resrgb; // Define output image
 
-    // Set denoising parameters
-    int h = 30;
-    int patchSize = 5;
-    int searchWindowSize = 15;
-    // Also tried : 20, 10, 25
+    /////////////////////
+    /* - Parse Input - */
+    /////////////////////
 
-    //////////////////////
-    /* - Denoise: NLM - */
-    //////////////////////
+    std::string functionality;
+    std::string algorithm;
+    std::string inputPath;
+    std::string outputPath;
 
-    Timer NLMSimulationTimer;
-    // Apply non-local means denoising
-    OMPNonLocalMeansDenoising(inputDenoising, resmedian, h, patchSize, searchWindowSize);
-    float nlmSimulationTime = NLMSimulationTimer.elapsed();
-    std::cout << "NLM simulation time: " << nlmSimulationTime << std::endl;
+    std::cout << "Enter functionality (denoise/enhance/conversion): ";
+    std::cin >> functionality;
 
-    // Save denoised image
-    resmedian.save("images-output/denoise-nlm.png");
+    if (functionality == "denoise")
+    {
+        std::cout << "Enter algorithm (median/nlm): ";
+        std::cin >> algorithm;
+    }
+    else if (functionality == "enhance")
+    {
+        std::cout << "Enter algorithm (equalization/clahe): ";
+        std::cin >> algorithm;
+    }
+    else if (functionality == "conversion")
+    {
+        ;
+    }
+    else
+    {
+        std::cerr << "Invalid Functionality Selection" << std::endl;
+        return 1;
+    }
 
-    ////////////////////////////////
-    /* - Denoise: Median Filter - */
-    ////////////////////////////////
+    std::cout << "Enter input image path: ";
+    std::cin >> inputPath;
 
-    Timer MedianSimulationTimer;
-    OMPMedianFilterDenoise(inputDenoising, resnlm, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
-    float medianSimulationTime = MedianSimulationTimer.elapsed();
-    std::cout << "Median simulation time: " << medianSimulationTime << std::endl;
+    ///////////////////////
+    /* - Run Algorithm - */
+    ///////////////////////
 
-    resnlm.save("images-output/denoise-median.png"); // Save output image
+    CImg<unsigned char> inputImage(inputPath.c_str());
+    CImg<unsigned char> outputImage;
+    Timer MyTimer;
 
-    /////////////////////////////////////////
-    /* - Enhance: Histogram Equalization - */
-    /////////////////////////////////////////
+    if (functionality == "denoise")
+    {
+        ///////////////////
+        /* - Denoising - */
+        ///////////////////
 
-    Timer HEqualizationSimulationTimer;
-    OMPHistogramEqualization(inputEnhancing, resheq);
-    float hequalizationSimulationTime = HEqualizationSimulationTimer.elapsed();
-    std::cout << "HEqualization simulation time: " << hequalizationSimulationTime << std::endl;
+        if (algorithm == "median")
+        {
+            // Set denoising parameters
+            int patchSize = 5;
+            int percentile = 50;
+            OMPMedianFilterDenoise(inputImage, outputImage, patchSize, percentile);
 
-    resheq.save("images-output/enhance-equalization.png");
+            float duration = MyTimer.elapsed();
+            outputImage.save("images-output/denoise-median.png");
+            std::cout << "Simulation time: " << duration << std::endl;
+        }
+        else if (algorithm == "nlm")
+        {
+            // Set denoising parameters
+            int h = 30;
+            int patchSize = 5;
+            int searchWindowSize = 15;
+            OMPNonLocalMeansDenoising(inputImage, outputImage, h, patchSize, searchWindowSize);
 
-    ////////////////////////
-    /* - Enhance: CLAHE - */
-    ////////////////////////
+            float duration = MyTimer.elapsed();
+            outputImage.save("images-output/denoise-nlm.png");
+            std::cout << "Simulation time: " << duration << std::endl;
+        }
+        else
+        {
+            std::cerr << "Error: Unknown denoising algorithm (Choices: median / nlm)\n";
+            return 1;
+        }
+    }
+    else if (functionality == "enhance")
+    {
+        ///////////////////
+        /* - Enhancing - */
+        ///////////////////
 
-    Timer CLAHESimulationTimer;
-    OMPCLAHE(inputEnhancing, resclahe, 2, 96);
-    float claheSimulationTime = CLAHESimulationTimer.elapsed();
-    std::cout << "CLAHE simulation time: " << claheSimulationTime << std::endl;
+        if (algorithm == "equalization")
+        {
+            OMPHistogramEqualization(inputImage, outputImage);
 
-    resclahe.save("images-output/enhance-clahe.png");
+            float duration = MyTimer.elapsed();
+            outputImage.save("images-output/enhance-equalization.png");
+            std::cout << "Simulation time: " << duration << std::endl;
+        }
+        else if (algorithm == "clahe")
+        {
+            int tileWidth = 2;
+            int clipLimit = 96;
+            OMPCLAHE(inputImage, outputImage, tileWidth, clipLimit);
 
-    ///////////////////////////////
-    /* - Conversion: Grayscale - */
-    ///////////////////////////////
+            float duration = MyTimer.elapsed();
+            outputImage.save("images-output/enhance-clahe.png");
+            std::cout << "Simulation time: " << duration << std::endl;
+        }
+        else
+        {
+            std::cerr << "Error: Unknown enhancement algorithm (Choices: equalization / clahe)\n";
+            return 1;
+        }
+    }
+    else if (functionality == "conversion")
+    {
+        ////////////////////
+        /* - Conversion - */
+        ////////////////////
 
-    Timer GrayscaleSimulationTimer;
-    OMPRGBtoYCbCr(inputConversion, resgray);
-    float grayscaleSimulationTime = GrayscaleSimulationTimer.elapsed();
-    std::cout << "Grayscale simulation time: " << grayscaleSimulationTime << std::endl;
+        // RGB to YCBCR + Grayscale
+        CImg<unsigned char> resgray, resrgb;
+        OMPRGBtoYCbCr(inputImage, resgray);
 
-    resgray.save("images-output/conversion-ycbcr.png");
-    resgray.get_channel(0).save("images-output/conversion-grayscale.png");
+        float duration = MyTimer.elapsed();
+        std::cout << "YCBCR/Grayscale simulation time: " << duration << std::endl;
+        resgray.save("images-output/conversion-ycbcr.png");
+        resgray.get_channel(0).save("images-output/conversion-grayscale.png");
 
-    /////////////////////////
-    /* - Conversion: RGB - */
-    /////////////////////////
-
-    Timer RGBSimulationTimer;
-    OMPYCbCrtoRGB(resgray, resrgb);
-    float rgbSimulationTime = RGBSimulationTimer.elapsed();
-    std::cout << "RGB simulation time: " << rgbSimulationTime << std::endl;
-
-    resrgb.save("images-output/conversion-rgb.png");
-
-    return 0;
+        // YCBCR to RGB
+        Timer RGBSimulationTimer;
+        OMPYCbCrtoRGB(resgray, resrgb);
+        float rgbSimulationTime = RGBSimulationTimer.elapsed();
+        std::cout << "RGB simulation time: " << rgbSimulationTime << std::endl;
+        resrgb.save("images-output/conversion-rgb.png");
+    }
+    else
+    {
+        std::cerr << "Error: Unknown functionality!" << std::endl;
+        return 1;
+    }
 }
+
+// int main()
+// {
+//     // Load input image
+//     CImg<unsigned char> inputDenoising("images-input/inputDenoising.png");
+//     CImg<unsigned char> inputEnhancing("images-input/inputHequalization2.bmp");
+//     CImg<unsigned char> inputConversion("images-input/inputConversion.bmp");
+//     CImg<unsigned char> resmedian, resnlm, resheq, resclahe, resgray, resrgb; // Define output image
+
+//     // Set denoising parameters
+//     int h = 30;
+//     int patchSize = 5;
+//     int searchWindowSize = 15;
+//     // Also tried : 20, 10, 25
+
+//     //////////////////////
+//     /* - Denoise: NLM - */
+//     //////////////////////
+
+//     Timer NLMSimulationTimer;
+//     // Apply non-local means denoising
+//     OMPNonLocalMeansDenoising(inputDenoising, resmedian, h, patchSize, searchWindowSize);
+//     float nlmSimulationTime = NLMSimulationTimer.elapsed();
+//     std::cout << "NLM simulation time: " << nlmSimulationTime << std::endl;
+
+//     // Save denoised image
+//     resmedian.save("images-output/denoise-nlm.png");
+
+//     ////////////////////////////////
+//     /* - Denoise: Median Filter - */
+//     ////////////////////////////////
+
+//     Timer MedianSimulationTimer;
+//     OMPMedianFilterDenoise(inputDenoising, resnlm, 5, 50); // Apply denoising with 5x5 kernel and 50% percile
+//     float medianSimulationTime = MedianSimulationTimer.elapsed();
+//     std::cout << "Median simulation time: " << medianSimulationTime << std::endl;
+
+//     resnlm.save("images-output/denoise-median.png"); // Save output image
+
+//     /////////////////////////////////////////
+//     /* - Enhance: Histogram Equalization - */
+//     /////////////////////////////////////////
+
+//     Timer HEqualizationSimulationTimer;
+//     OMPHistogramEqualization(inputEnhancing, resheq);
+//     float hequalizationSimulationTime = HEqualizationSimulationTimer.elapsed();
+//     std::cout << "HEqualization simulation time: " << hequalizationSimulationTime << std::endl;
+
+//     resheq.save("images-output/enhance-equalization.png");
+
+//     ////////////////////////
+//     /* - Enhance: CLAHE - */
+//     ////////////////////////
+
+//     Timer CLAHESimulationTimer;
+//     OMPCLAHE(inputEnhancing, resclahe, 2, 96);
+//     float claheSimulationTime = CLAHESimulationTimer.elapsed();
+//     std::cout << "CLAHE simulation time: " << claheSimulationTime << std::endl;
+
+//     resclahe.save("images-output/enhance-clahe.png");
+
+//     ///////////////////////////////
+//     /* - Conversion: Grayscale - */
+//     ///////////////////////////////
+
+//     Timer GrayscaleSimulationTimer;
+//     OMPRGBtoYCbCr(inputConversion, resgray);
+//     float grayscaleSimulationTime = GrayscaleSimulationTimer.elapsed();
+//     std::cout << "Grayscale simulation time: " << grayscaleSimulationTime << std::endl;
+
+//     resgray.save("images-output/conversion-ycbcr.png");
+//     resgray.get_channel(0).save("images-output/conversion-grayscale.png");
+
+//     /////////////////////////
+//     /* - Conversion: RGB - */
+//     /////////////////////////
+
+//     Timer RGBSimulationTimer;
+//     OMPYCbCrtoRGB(resgray, resrgb);
+//     float rgbSimulationTime = RGBSimulationTimer.elapsed();
+//     std::cout << "RGB simulation time: " << rgbSimulationTime << std::endl;
+
+//     resrgb.save("images-output/conversion-rgb.png");
+
+//     return 0;
+// }
