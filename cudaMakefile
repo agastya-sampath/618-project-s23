@@ -1,0 +1,40 @@
+EXECUTABLE := denoise-cuda
+CIMGHEADER := CImg/CImg.h
+HEADER     := cuda/cuda.h
+
+all: $(EXECUTABLE)
+
+###########################################################
+
+OBJDIR=cuda/objs
+CXX=g++ -m64
+CXXFLAGS=-O3 -Wall -I./CImg
+LDFLAGS=-L/usr/local/cuda-11.7/lib64/ -lcudart -lX11
+NVCC=nvcc
+NVCCFLAGS=-O3 -m64 --gpu-architecture compute_61 -ccbin /usr/bin/gcc -I./CImg -I./cuda
+
+
+OBJS=$(OBJDIR)/main.o  $(OBJDIR)/cuda.o
+
+.PHONY: dirs clean
+
+all: $(EXECUTABLE)
+
+default: $(EXECUTABLE)
+
+dirs:
+		mkdir -p $(OBJDIR)/
+
+clean:
+		rm -rf $(OBJDIR) *.ppm *~ $(EXECUTABLE)
+
+$(EXECUTABLE): dirs $(OBJS) $(CIMGHEADER)
+		$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+
+
+
+$(OBJDIR)/%.o: cuda/%.cpp
+		$(CXX) $< $(CXXFLAGS) -c -o $@
+
+$(OBJDIR)/%.o: cuda/%.cu
+		$(NVCC) $< $(NVCCFLAGS) -c -o $@

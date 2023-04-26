@@ -11,3 +11,4 @@ cub-2.1.0/*
 denoise-cuda
 pipl-openmp
 pipl-serial
+images-output/
