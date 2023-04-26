@@ -217,7 +217,8 @@ void SerialCLAHE(CImg<unsigned char> &img, CImg<unsigned char> &res, int clipLim
     const int half_win = gridSize / 2;
 
     // Apply CLAHE to each window
-    cimg_forXY(img, x, y) {
+    cimg_forXY(img, x, y)
+    {
         // Calculate the range of pixels within the current window
         const int x_min = std::max(0, x - half_win);
         const int x_max = std::min(width - 1, x + half_win);
@@ -229,8 +230,10 @@ void SerialCLAHE(CImg<unsigned char> &img, CImg<unsigned char> &res, int clipLim
         local_hist_r.fill(0);
         local_hist_g.fill(0);
         local_hist_b.fill(0);
-        for (int i = x_min; i <= x_max; i++) {
-            for (int j = y_min; j <= y_max; j++) {
+        for (int i = x_min; i <= x_max; i++)
+        {
+            for (int j = y_min; j <= y_max; j++)
+            {
                 local_hist_r(img(i, j, 0), 0)++;
                 local_hist_g(img(i, j, 1), 0)++;
                 local_hist_b(img(i, j, 2), 0)++;
@@ -242,24 +245,28 @@ void SerialCLAHE(CImg<unsigned char> &img, CImg<unsigned char> &res, int clipLim
         cum_hist_r_local(0) = local_hist_r(0, 0) / (float)(gridSize * gridSize);
         cum_hist_g_local(0) = local_hist_g(0, 0) / (float)(gridSize * gridSize);
         cum_hist_b_local(0) = local_hist_b(0, 0) / (float)(gridSize * gridSize);
-        for (int i = 1; i < bins; i++) {
+        for (int i = 1; i < bins; i++)
+        {
             cum_hist_r_local(i) = cum_hist_r_local(i - 1) + local_hist_r(i, 0) / (float)(gridSize * gridSize);
             cum_hist_g_local(i) = cum_hist_g_local(i - 1) + local_hist_g(i, 0) / (float)(gridSize * gridSize);
             cum_hist_b_local(i) = cum_hist_b_local(i - 1) + local_hist_b(i, 0) / (float)(gridSize * gridSize);
         }
 
-        CImg<float> cum_hist_avg_local(bins); 
-        cum_hist_avg_local = (cum_hist_r_local + cum_hist_g_local + cum_hist_b_local)/3;
+        CImg<float> cum_hist_avg_local(bins);
+        cum_hist_avg_local = (cum_hist_r_local + cum_hist_g_local + cum_hist_b_local) / 3;
 
         // Calculate the equalized value for each color channel separately
-        for (int c = 0; c < channels; c++) {
+        for (int c = 0; c < channels; c++)
+        {
             // Get local cumulative histogram for the current channel
             CImg<float> cum_hist_local;
             cum_hist_local = cum_hist_avg_local;
 
             // Calculate the equalized value for each pixel in the current channel
-            for (int x_res = x_min; x_res <= x_max; x_res++) {
-                for (int y_res = y_min; y_res <= y_max; y_res++) {
+            for (int x_res = x_min; x_res <= x_max; x_res++)
+            {
+                for (int y_res = y_min; y_res <= y_max; y_res++)
+                {
                     // Get the original pixel
                     const int x_orig = std::max(0, std::min(width - 1, x_res));
                     const int y_orig = std::max(0, std::min(height - 1, y_res));
@@ -275,12 +282,71 @@ void SerialCLAHE(CImg<unsigned char> &img, CImg<unsigned char> &res, int clipLim
     }
 }
 
+// Convert RGB to YCbCr
+void SerialRGBtoYCbCr(CImg<unsigned char> &img, CImg<unsigned char> &res)
+{
+    res = img;
+    const int w = img.width();
+    const int h = img.height();
+    const int c = img.spectrum();
+
+    for (int i = 0; i < w; i++)
+    {
+        for (int j = 0; j < h; j++)
+        {
+            const unsigned char r = img(i, j, 0, 0);
+            const unsigned char g = img(i, j, 0, 1);
+            const unsigned char b = img(i, j, 0, 2);
+
+            // Perform RGB to YCbCr conversion
+            const double Y = 0.299 * r + 0.587 * g + 0.114 * b;
+            const double Cb = -0.168736 * r - 0.331264 * g + 0.5 * b + 128;
+            const double Cr = 0.5 * r - 0.418688 * g - 0.081312 * b + 128;
+
+            // Store the converted values back into the image
+            res(i, j, 0, 0) = (unsigned char)Y;
+            res(i, j, 0, 1) = (unsigned char)Cb;
+            res(i, j, 0, 2) = (unsigned char)Cr;
+        }
+    }
+}
+
+// Convert YCbCr to RGB
+void SerialYCbCrtoRGB(CImg<unsigned char> &img, CImg<unsigned char> &res)
+{
+    res = img;
+    const int w = img.width();
+    const int h = img.height();
+    const int c = img.spectrum();
+
+    for (int i = 0; i < w; i++)
+    {
+        for (int j = 0; j < h; j++)
+        {
+            const unsigned char Y = img(i, j, 0, 0);
+            const unsigned char Cb = img(i, j, 0, 1);
+            const unsigned char Cr = img(i, j, 0, 2);
+
+            // Perform YCbCr to RGB conversion
+            const double R = Y + 1.402 * (Cr - 128);
+            const double G = Y - 0.344136 * (Cb - 128) - 0.714136 * (Cr - 128);
+            const double B = Y + 1.772 * (Cb - 128);
+
+            // Store the converted values back into the image
+            res(i, j, 0, 0) = (unsigned char)R;
+            res(i, j, 0, 1) = (unsigned char)G;
+            res(i, j, 0, 2) = (unsigned char)B;
+        }
+    }
+}
+
 int main()
 {
     // Load input image
     CImg<unsigned char> inputDenoising("images-input/inputDenoising.png");
     CImg<unsigned char> inputEnhancing("images-input/inputHequalization2.bmp");
-    CImg<unsigned char> resmedian, resnlm, resheq, resclahe; // Define output image
+    CImg<unsigned char> inputConversion("images-input/inputConversion.bmp");
+    CImg<unsigned char> resmedian, resnlm, resheq, resclahe, resgray, resrgb; // Define output image
 
     // Set denoising parameters
     int h = 30;
@@ -333,6 +399,29 @@ int main()
     std::cout << "CLAHE simulation time: " << claheSimulationTime << std::endl;
 
     resclahe.save("images-output/enhance-clahe.png");
+
+    ///////////////////////////////
+    /* - Conversion: Grayscale - */
+    ///////////////////////////////
+
+    Timer GrayscaleSimulationTimer;
+    SerialRGBtoYCbCr(inputConversion, resgray);
+    float grayscaleSimulationTime = GrayscaleSimulationTimer.elapsed();
+    std::cout << "Grayscale simulation time: " << grayscaleSimulationTime << std::endl;
+
+    resgray.save("images-output/conversion-ycbcr.png");
+    resgray.get_channel(0).save("images-output/conversion-grayscale.png");
+
+    /////////////////////////
+    /* - Conversion: RGB - */
+    /////////////////////////
+
+    Timer RGBSimulationTimer;
+    SerialYCbCrtoRGB(resgray, resrgb);
+    float rgbSimulationTime = RGBSimulationTimer.elapsed();
+    std::cout << "RGB simulation time: " << rgbSimulationTime << std::endl;
+
+    resrgb.save("images-output/conversion-rgb.png");
 
     return 0;
 }
