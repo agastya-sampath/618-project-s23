@@ -95,10 +95,9 @@ void OMPNonLocalMeansDenoising(CImg<unsigned char> &image, CImg<unsigned char> &
     res = image;
 
 // Iterate over each pixel in the image
-#pragma omp parallel for schedule(dynamic, 8)
+#pragma omp parallel for collapse(2) schedule(dynamic, 8)
     for (int y = 0; y < image.height(); ++y)
     {
-#pragma omp parallel for schedule(dynamic, 8)
         for (int x = 0; x < image.width(); ++x)
         {
 
@@ -183,7 +182,7 @@ void OMPHistogramEqualization(CImg<unsigned char> &img, CImg<unsigned char> &res
     // Compute the average histogram
     CImg<float> hist_avg(bins);
     hist_avg.fill(0);
-#pragma omp parallel for schedule(dynamic, 64)
+#pragma omp parallel for simd schedule(dynamic, 64)
     for (int i = 0; i < bins; i++)
     {
         hist_avg(i) = (hist_r(i, 0) + hist_g(i, 0) + hist_b(i, 0)) / (float)(3 * width * height);
