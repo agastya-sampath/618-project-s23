@@ -12,17 +12,21 @@
 #include <thrust/device_malloc.h>
 #include <thrust/device_free.h>
 
-__global__ void RGBtoYCbCrKernel(const unsigned char *img, unsigned char *res, const int w, const int h)
+////////////////////
+/* - Conversion - */
+////////////////////
+
+__global__ void RGBtoYCbCrKernel(const unsigned char *img, unsigned char *res, const int width, const int height)
 {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= w || y >= h)
+    if (x >= width || y >= height)
         return;
 
-    const int idx = (y * w + x) * 3;
-    const unsigned char r = img[idx];
-    const unsigned char g = img[idx + 1];
-    const unsigned char b = img[idx + 2];
+    // Ref: https://cimg.eu/reference/storage.html
+    const unsigned char r = img[y * width + x];
+    const unsigned char g = img[(height + y) * width + x];
+    const unsigned char b = img[(height * 2 + y) * width + x];
 
     // Perform RGB to YCbCr conversion
     const double Y = 0.299 * r + 0.587 * g + 0.114 * b;
@@ -30,10 +34,9 @@ __global__ void RGBtoYCbCrKernel(const unsigned char *img, unsigned char *res, c
     const double Cr = 0.5 * r - 0.418688 * g - 0.081312 * b + 128;
 
     // Store the converted values back into the image
-    const int res_idx = (y * w + x) * 3;
-    res[res_idx] = (unsigned char)Y;
-    res[res_idx + 1] = (unsigned char)Cb;
-    res[res_idx + 2] = (unsigned char)Cr;
+    res[y * width + x] = (unsigned char)Y;
+    res[(height + y) * width + x] = (unsigned char)Cb;
+    res[(height * 2 + y) * width + x] = (unsigned char)Cr;
 }
 
 void CUDARGBtoYCbCr(const unsigned char *img, unsigned char *res, int width, int height)
@@ -49,6 +52,7 @@ void CUDARGBtoYCbCr(const unsigned char *img, unsigned char *res, int width, int
 
     dim3 block(16, 16);
     dim3 grid((w + block.x - 1) / block.x, (h + block.y - 1) / block.y);
+
     RGBtoYCbCrKernel<<<grid, block>>>(d_input, d_output, w, h);
 
     cudaMemcpy(res, d_output, size, cudaMemcpyDeviceToHost);
