@@ -434,9 +434,9 @@ int main()
         }
         else if (algorithm == "clahe")
         {
-            int tileWidth = 2;
-            int clipLimit = 96;
-            SerialCLAHE(inputImage, outputImage, tileWidth, clipLimit);
+            int clipLimit = 2;
+            int gridSize = 96;
+            SerialCLAHE(inputImage, outputImage, clipLimit, gridSize);
 
             float duration = MyTimer.elapsed();
             outputImage.save("images-output/enhance-clahe.png");
