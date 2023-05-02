@@ -26,9 +26,6 @@ int main()
     const int k = 5;
     CImg<unsigned char> outputImage(inputImage.width()-2*(k-1)/2, inputImage.height()-2*(k-1)/2, 1, 3);
     CUDAMedianFilterDenoise(inputImage, outputImage, 50, inputImage.width(), inputImage.height());
-    cimg_forXY(outputImage, x, y) {
-        printf("\n[%d][%d] r %d g %d b %d\n", x, y, outputImage(x,y,0,0), outputImage(x,y,0,1), outputImage(x,y,0,2));
-    }
     outputImage.save("images-output/denoise-median.png");
 //     /////////////////////
 //     /* - Parse Input - */

@@ -349,7 +349,6 @@ __global__ void MedianFilterKernel(const unsigned char* orig, unsigned char* res
 
     if (i < height - mid && j < width - mid)
     {
-        // printf("\n(%d, %d)\n", i, j);
         int n_pixels = k * k;
         int n_neighbors = n_pixels / 2 * (int(perc) / 100);
 
@@ -368,14 +367,6 @@ __global__ void MedianFilterKernel(const unsigned char* orig, unsigned char* res
                 neighbors[2][idx] = orig[(i + y) * width + (j + x) + 2 * height * width]; // B
             }
         }
-        // if (i == 20 && j == 20)
-        // for (int y = -mid; y <= mid; y++)
-        // {
-        //     for (int x = -mid; x <= mid; x++)
-        //     {
-        //         printf("\n[%d][%d] [%d][%d] %d\n", i, j, y, x, orig[(i + y) * width + (j + x) + 2 * height * width]);
-        //     }
-        // }
 
         // Sort R, G, B values independently
         for (int c = 0; c < 3; c++)
@@ -393,23 +384,6 @@ __global__ void MedianFilterKernel(const unsigned char* orig, unsigned char* res
                 }
             }
         }
-        // if (i == 20 && j == 20)
-        // for (int y = -mid; y <= mid; y++)
-        // {
-        //     for (int x = -mid; x <= mid; x++)
-        //     {
-        //         int idx = (y + mid) * k + x + mid;
-        //         printf("\n[%d][%d] [%d][%d] %lf\n", i, j, y, x, neighbors[2][idx]);
-        //     }
-        // }
-
-        // Compute median RGB values
-        // float medianRGB[3] = { neighbors[0][median + n_neighbors], neighbors[1][median + n_neighbors], neighbors[2][median + n_neighbors] };
-
-        // if(i==20 && j==20)
-        //     for(int m = 0; m < n_pixels; m++) {
-        //         printf("\nNeighborsR[%d] %lf", m, neighbors[0][m]);
-        //     }
 
         // Compute average RGB values of neighbors within range
         float accumRGB[3] = { 0.0f, 0.0f, 0.0f };
@@ -418,14 +392,10 @@ __global__ void MedianFilterKernel(const unsigned char* orig, unsigned char* res
             accumRGB[0] += neighbors[0][p];
             accumRGB[1] += neighbors[1][p];
             accumRGB[2] += neighbors[2][p];
-            // if(i==20 && j == 20)
-            //     printf("\n[%d] %lf\n", p, neighbors[0][p]);
         }
         accumRGB[0] /= (2 * n_neighbors + 1);
         accumRGB[1] /= (2 * n_neighbors + 1);
         accumRGB[2] /= (2 * n_neighbors + 1);
-        if (i==20 && j==20)
-        printf("\nR %lf G %lf B %lf\n", accumRGB[0], accumRGB[1], accumRGB[2]);
 
 
         // Assign to result image
@@ -461,12 +431,6 @@ void CUDAMedianFilterDenoise(const unsigned char *img, unsigned char *res, const
     // Copy result image from device memory
     cudaMemcpy(res, dev_res, (width - 2 * mid) * (height - 2 * mid) * 3 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-    // for(int i = mid; i < height - mid; i++) {
-    //     for (int j = mid; j < width - mid; j++) {
-    //         int idx = (i - mid) * (width - 2 * mid) + (j - mid);
-    //         printf("\n[%d][%d] R %d G %d B %d\n", j-mid, i-mid, res[idx], res[idx + (width - 2 * mid) * (height - 2 * mid)], res[idx + 2 * (width - 2 * mid) * (height - 2 * mid)]);
-    //     }
-    // }
     // Free device memory
     cudaFree(dev_img);
     cudaFree(dev_res);
