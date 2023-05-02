@@ -216,8 +216,6 @@ __global__ void claheKernel(const unsigned char *img, unsigned char *res, const 
 
 void CUDACLAHE(const unsigned char *img, unsigned char *res, const int width, const int height, const int clipLimit, const int gridSize)
 {
-    const int bins = 256;
-
     // Calculate the maximum allowed slope
     const float max_slope = clipLimit / (float)(gridSize * gridSize);
 

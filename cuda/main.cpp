@@ -19,85 +19,96 @@ void CUDACLAHE(const unsigned char *img, unsigned char *res, const int width, co
 
 int main()
 {
-    CImg<unsigned char> inputImage("images-input/inputHequalization.bmp");
-    CImg<unsigned char> result(inputImage.width(), inputImage.height(), 1, 3);
-    CUDACLAHE(inputImage, result, inputImage.width(), inputImage.height(), 2, 96);
-    result.save("images-output/enhance-clahe.png");
+    /////////////////////
+    /* - Parse Input - */
+    /////////////////////
 
-    // /////////////////////
-    // /* - Parse Input - */
-    // /////////////////////
+    std::string functionality;
+    std::string algorithm;
+    std::string inputPath;
+    std::string outputPath;
 
-    // std::string functionality;
-    // std::string algorithm;
-    // std::string inputPath;
-    // std::string outputPath;
+    std::cout << "Enter functionality (TODO/enhance/conversion): ";
+    std::cin >> functionality;
 
-    // std::cout << "Enter functionality (TODO/enhance/conversion): ";
-    // std::cin >> functionality;
+    if (functionality == "enhance")
+    {
+        std::cout << "Enter algorithm (equalization/clahe): ";
+        std::cin >> algorithm;
+    }
+    else if (functionality == "conversion")
+    {
+        ;
+    }
+    else
+    {
+        std::cerr << "Invalid Functionality Selection" << std::endl;
+        return 1;
+    }
 
-    // if (functionality == "enhance")
-    // {
-    //     std::cout << "Enter algorithm (equalization/TODO): ";
-    //     std::cin >> algorithm;
-    // }
-    // else if (functionality == "conversion")
-    // {
-    //     ;
-    // }
-    // else
-    // {
-    //     std::cerr << "Invalid Functionality Selection" << std::endl;
-    //     return 1;
-    // }
+    std::cout << "Enter input image path: ";
+    std::cin >> inputPath;
 
-    // std::cout << "Enter input image path: ";
-    // std::cin >> inputPath;
+    ///////////////////////
+    /* - Run Algorithm - */
+    ///////////////////////
 
-    // ///////////////////////
-    // /* - Run Algorithm - */
-    // ///////////////////////
+    CImg<unsigned char> inputImage(inputPath.c_str());
+    Timer MyTimer;
 
-    // CImg<unsigned char> inputImage(inputPath.c_str());
-    // Timer MyTimer;
+    if (functionality == "enhance")
+    {
+        ///////////////////
+        /* - Enhancing - */
+        ///////////////////
 
-    // if (functionality == "enhance")
-    // {
-    //     ///////////////////
-    //     /* - Enhancing - */
-    //     ///////////////////
+        if (algorithm == "equalization")
+        {
+            CImg<unsigned char> outputImage(inputImage.width(), inputImage.height(), 1, 3);
+            CUDAHistogramEqualization(inputImage, outputImage, inputImage.width(), inputImage.height());
 
-    //     if (algorithm == "equalization")
-    //     {
-    //         CImg<unsigned char> outputImage(inputImage.width(), inputImage.height(), 1, 3);
-    //         CUDAHistogramEqualization(inputImage, outputImage, inputImage.width(), inputImage.height());
+            float duration = MyTimer.elapsed();
+            outputImage.save("images-output/enhance-equalization.png");
+            std::cout << "Simulation time: " << duration << std::endl;
+        }
+        else if (algorithm == "clahe")
+        {
+            int clipLimit = 2;
+            int gridSize = 96;
+            CImg<unsigned char> outputImage(inputImage.width(), inputImage.height(), 1, 3);
+            CUDACLAHE(inputImage, outputImage, inputImage.width(), inputImage.height(), clipLimit, gridSize);
 
-    //         float duration = MyTimer.elapsed();
-    //         outputImage.save("images-output/enhance-equalization.png");
-    //         std::cout << "Simulation time: " << duration << std::endl;
-    //     }
-    // }
-    // else if (functionality == "conversion")
-    // {
-    //     ////////////////////
-    //     /* - Conversion - */
-    //     ////////////////////
+            float duration = MyTimer.elapsed();
+            outputImage.save("images-output/enhance-clahe.png");
+            std::cout << "Simulation time: " << duration << std::endl;
+        }
+        else
+        {
+            std::cerr << "Error: Unknown enhancement algorithm (Choices: equalization / clahe)\n";
+            return 1;
+        }
+    }
+    else if (functionality == "conversion")
+    {
+        ////////////////////
+        /* - Conversion - */
+        ////////////////////
 
-    //     // RGB to YCBCR + Grayscale
-    //     CImg<unsigned char> resgray(inputImage.width(), inputImage.height(), 1, 3);
-    //     CImg<unsigned char> resrgb(inputImage.width(), inputImage.height(), 1, 3);
-    //     CUDARGBtoYCbCr(inputImage, resgray, inputImage.width(), inputImage.height());
+        // RGB to YCBCR + Grayscale
+        CImg<unsigned char> resgray(inputImage.width(), inputImage.height(), 1, 3);
+        CImg<unsigned char> resrgb(inputImage.width(), inputImage.height(), 1, 3);
+        CUDARGBtoYCbCr(inputImage, resgray, inputImage.width(), inputImage.height());
 
-    //     float duration = MyTimer.elapsed();
-    //     std::cout << "YCBCR/Grayscale simulation time: " << duration << std::endl;
-    //     resgray.save("images-output/conversion-ycbcr.png");
-    //     resgray.get_channel(0).save("images-output/conversion-grayscale.png");
+        float duration = MyTimer.elapsed();
+        std::cout << "YCBCR/Grayscale simulation time: " << duration << std::endl;
+        resgray.save("images-output/conversion-ycbcr.png");
+        resgray.get_channel(0).save("images-output/conversion-grayscale.png");
 
-    //     // YCBCR to RGB
-    //     Timer RGBSimulationTimer;
-    //     CUDAYCbCrtoRGB(resgray, resrgb, resgray.width(), resgray.height());
-    //     float rgbSimulationTime = RGBSimulationTimer.elapsed();
-    //     std::cout << "RGB simulation time: " << rgbSimulationTime << std::endl;
-    //     resrgb.save("images-output/conversion-rgb.png");
-    // }
+        // YCBCR to RGB
+        Timer RGBSimulationTimer;
+        CUDAYCbCrtoRGB(resgray, resrgb, resgray.width(), resgray.height());
+        float rgbSimulationTime = RGBSimulationTimer.elapsed();
+        std::cout << "RGB simulation time: " << rgbSimulationTime << std::endl;
+        resrgb.save("images-output/conversion-rgb.png");
+    }
 }
