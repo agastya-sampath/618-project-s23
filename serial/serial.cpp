@@ -21,18 +21,24 @@ void SerialMedianFilterDenoise(CImg<unsigned char> &orig, CImg<unsigned char> &r
     {
         for (int j = mid; j < orig.width() - mid; j++) // No padding
         {
+            // printf("\n(%d, %d)\n", i, j);
             std::vector<rgb_t> rgbNeighbors;
 
             rgb_t rgbAccumulate(0.0f, 0.0f, 0.0f);
 
             // Find neighbors of current pixel within filter range
-            for (int x = -mid; x <= mid; x++)
+            for (int y = -mid; y <= mid; y++)
             {
-                for (int y = -mid; y <= mid; y++)
+                for (int x = -mid; x <= mid; x++)
                 {
-                    rgbNeighbors.push_back(rgb_t(orig(j + y, i + x, 0, 0), orig(j + y, i + x, 0, 1), orig(j + y, i + x, 0, 2)));
+                    rgbNeighbors.push_back(rgb_t(orig(j + x, i + y, 0, 0), orig(j + x, i + y, 0, 1), orig(j + x, i + y, 0, 2)));
+                    // if (i==20 && j == 20)
+                    // printf("\n[%d][%d] [%d][%d] %d\n", i, j, y, x, orig(j + x, i + y, 0, 2));
                 }
             }
+            //images-input/inputDenoising.png
+            // if (i==20 && j == 20)
+            // printf("\n[%d][%d] [%d][%d] %lf", i, j, 0, 0, rgbNeighbors[0].r);
 
             // Find median pixel
             int median = (k % 2) ? (k * k - 1) / 2 : k * k / 2;
@@ -46,15 +52,37 @@ void SerialMedianFilterDenoise(CImg<unsigned char> &orig, CImg<unsigned char> &r
                 if (colors == 0)
                 {
                     std::sort(rgbNeighbors.begin(), rgbNeighbors.end(), compareR);
+                    // for (int y = -mid; y <= mid; y++)
+                    // {
+                    //     for (int x = -mid; x <= mid; x++)
+                    //     {
+                    //         if (i==20 && j == 20)
+                    //         printf("\n[%d][%d] [%d][%d] %lf\n", i, j, y, x, rgbNeighbors[(y + mid) * k + x + mid].r);
+                    //     }
+                    // }
+                    // if(i==20 && j==20)
+                    // for(int m = 0; m < rgbNeighbors.size(); m++) {
+                    //     printf("\nNeighborsR[%d] %lf", m, rgbNeighbors[m].r);
+                    // }
                     for (int idx = -n_neighbors; idx <= n_neighbors; idx++)
                     {
                         rgbAccumulate.r += rgbNeighbors[median + idx].r;
+                        // if(i==20 && j == 20)
+                        //     printf("\n[%d] %lf\n", median+idx, rgbNeighbors[median + idx].r);
                     }
                 }
                 // Sort g values
                 else if (colors == 1)
                 {
                     std::sort(rgbNeighbors.begin(), rgbNeighbors.end(), compareG);
+                    // for (int y = -mid; y <= mid; y++)
+                    // {
+                    //     for (int x = -mid; x <= mid; x++)
+                    //     {
+                    //         if (i==20 && j == 20)
+                    //         printf("\n[%d][%d] [%d][%d] %lf\n", i, j, y, x, rgbNeighbors[(y + mid) * k + x + mid].g);
+                    //     }
+                    // }
                     for (int idx = -n_neighbors; idx <= n_neighbors; idx++)
                     {
                         rgbAccumulate.g += rgbNeighbors[median + idx].g;
@@ -64,6 +92,14 @@ void SerialMedianFilterDenoise(CImg<unsigned char> &orig, CImg<unsigned char> &r
                 else
                 {
                     std::sort(rgbNeighbors.begin(), rgbNeighbors.end(), compareB);
+                    // for (int y = -mid; y <= mid; y++)
+                    // {
+                    //     for (int x = -mid; x <= mid; x++)
+                    //     {
+                    //         if (i==20 && j == 20)
+                    //         printf("\n[%d][%d] [%d][%d] %lf\n", i, j, y, x, rgbNeighbors[(y + mid) * k + x + mid].b);
+                    //     }
+                    // }
                     for (int idx = -n_neighbors; idx <= n_neighbors; idx++)
                     {
                         rgbAccumulate.b += rgbNeighbors[median + idx].b;
@@ -73,11 +109,17 @@ void SerialMedianFilterDenoise(CImg<unsigned char> &orig, CImg<unsigned char> &r
 
             // Average
             rgbAccumulate *= rgb_t(1. / float(2 * n_neighbors + 1), 1. / float(2 * n_neighbors + 1), 1. / float(2 * n_neighbors + 1));
+            // if (i==20 && j==20)
+            // printf("\nR %lf G %lf B %lf\n", rgbAccumulate.r, rgbAccumulate.g, rgbAccumulate.b);
 
             // Assign to result
             res(j - mid, i - mid, 0, 0) = rgbAccumulate.r;
             res(j - mid, i - mid, 0, 1) = rgbAccumulate.g;
             res(j - mid, i - mid, 0, 2) = rgbAccumulate.b;
+            // unsigned char *resChar = res;
+            // int idx = (i - mid) * (orig.width() - 2 * mid) + (j - mid);
+            // // if(i==20 && j==20)
+            //     printf("\n[%d][%d] R %d G %d B %d\n", j-mid, i-mid, resChar[idx], resChar[idx + (orig.width() - 2 * mid) * (orig.height() - 2 * mid)], resChar[idx + 2 * (orig.width() - 2 * mid) * (orig.height() - 2 * mid)]);
         }
     }
 }
@@ -399,6 +441,10 @@ int main()
             float duration = MyTimer.elapsed();
             outputImage.save("images-output/denoise-median.png");
             std::cout << "Simulation time: " << duration << std::endl;
+
+            // cimg_forXY(outputImage, x, y) {
+            //     printf("\n[%d][%d] r %d g %d b %d\n", x, y, outputImage(x,y,0,0), outputImage(x,y,0,1), outputImage(x,y,0,2));
+            // }
         }
         else if (algorithm == "nlm")
         {
