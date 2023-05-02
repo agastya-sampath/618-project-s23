@@ -341,7 +341,7 @@ void CUDAYCbCrtoRGB(const unsigned char *img, unsigned char *res, int width, int
 
 #define k 5
 
-__global__ void MedianFilterKernel(const unsigned char* orig, unsigned char* res, const int width, const int height, const int perc)
+__global__ void MedianFilterKernel(const unsigned char *orig, unsigned char *res, const int width, const int height, const int perc)
 {
     int mid = (k - 1) / 2;
     int i = blockIdx.y * blockDim.y + threadIdx.y + mid;
@@ -356,14 +356,14 @@ __global__ void MedianFilterKernel(const unsigned char* orig, unsigned char* res
         int median = (k % 2) ? (n_pixels - 1) / 2 : n_pixels / 2;
 
         // Store R, G, B values of neighbors in local array
-        float neighbors[3][k*k];
+        float neighbors[3][k * k];
         for (int y = -mid; y <= mid; y++)
         {
             for (int x = -mid; x <= mid; x++)
             {
                 int idx = (y + mid) * k + x + mid;
-                neighbors[0][idx] = orig[(i + y) * width + (j + x)]; // R
-                neighbors[1][idx] = orig[(i + y) * width + (j + x) + height * width]; // G
+                neighbors[0][idx] = orig[(i + y) * width + (j + x)];                      // R
+                neighbors[1][idx] = orig[(i + y) * width + (j + x) + height * width];     // G
                 neighbors[2][idx] = orig[(i + y) * width + (j + x) + 2 * height * width]; // B
             }
         }
@@ -386,7 +386,7 @@ __global__ void MedianFilterKernel(const unsigned char* orig, unsigned char* res
         }
 
         // Compute average RGB values of neighbors within range
-        float accumRGB[3] = { 0.0f, 0.0f, 0.0f };
+        float accumRGB[3] = {0.0f, 0.0f, 0.0f};
         for (int p = median - n_neighbors; p <= median + n_neighbors; p++)
         {
             accumRGB[0] += neighbors[0][p];
@@ -397,7 +397,6 @@ __global__ void MedianFilterKernel(const unsigned char* orig, unsigned char* res
         accumRGB[1] /= (2 * n_neighbors + 1);
         accumRGB[2] /= (2 * n_neighbors + 1);
 
-
         // Assign to result image
         int idx = (i - mid) * (width - 2 * mid) + (j - mid);
         res[idx] = (unsigned char)accumRGB[0];
@@ -405,7 +404,6 @@ __global__ void MedianFilterKernel(const unsigned char* orig, unsigned char* res
         res[idx + 2 * (width - 2 * mid) * (height - 2 * mid)] = (unsigned char)accumRGB[2];
     }
 }
-
 
 void CUDAMedianFilterDenoise(const unsigned char *img, unsigned char *res, const int perc, const int width, const int height)
 {
@@ -415,8 +413,8 @@ void CUDAMedianFilterDenoise(const unsigned char *img, unsigned char *res, const
     // const int n_neighbors = n_pixels / 2 * (perc / 100);
 
     unsigned char *dev_img, *dev_res;
-    cudaMalloc((void**)&dev_img, width * height * 3 * sizeof(unsigned char));
-    cudaMalloc((void**)&dev_res, (width - 2 * mid) * (height - 2 * mid) * 3 * sizeof(unsigned char));
+    cudaMalloc((void **)&dev_img, width * height * 3 * sizeof(unsigned char));
+    cudaMalloc((void **)&dev_res, (width - 2 * mid) * (height - 2 * mid) * 3 * sizeof(unsigned char));
 
     // Copy input image to device memory
     cudaMemcpy(dev_img, img, width * height * 3 * sizeof(unsigned char), cudaMemcpyHostToDevice);
@@ -430,6 +428,100 @@ void CUDAMedianFilterDenoise(const unsigned char *img, unsigned char *res, const
 
     // Copy result image from device memory
     cudaMemcpy(res, dev_res, (width - 2 * mid) * (height - 2 * mid) * 3 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+
+    // Free device memory
+    cudaFree(dev_img);
+    cudaFree(dev_res);
+}
+
+__global__ void nlmKernel(const unsigned char *orig, unsigned char *res, const int h, const int halfPatchSize, const int halfSearchWindowSize, const int width, const int height)
+{
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    // Initialize the pixel values for the red, green, and blue channels
+    float rgbAccumulate[3] = {0.0f, 0.0f, 0.0f};
+    double weightSum = 0.0;
+
+    // Iterate over each pixel in the search window
+    for (int i = x - halfSearchWindowSize; i <= x + halfSearchWindowSize; i++)
+    {
+        for (int j = y - halfSearchWindowSize; j <= y + halfSearchWindowSize; j++)
+        {
+            // Make sure the search window pixel is within the image bounds
+            if (i >= 0 && j >= 0 && i < width && j < height)
+            {
+                // Initialize the patch pixel values for the red, green, and blue channels
+                double rgbPatch[3] = {0.0f, 0.0f, 0.0f};
+
+                // Iterate over each pixel in the patch window
+                for (int m = i - halfPatchSize; m <= i + halfPatchSize; m++)
+                {
+                    for (int l = j - halfPatchSize; l <= j + halfPatchSize; l++)
+                    {
+                        // Make sure the patch window pixel is within the image bounds
+                        if (m >= 0 && l >= 0 && m < width && l < height)
+                        {
+                            // Calculate the distance between the patch window and the search window pixels
+                            int offsetPatch = l * width + m;
+                            int offsetSearch = y * width + x;
+                            double rDistance = pow(orig[offsetPatch] - orig[offsetSearch], 2);
+                            double gDistance = pow(orig[offsetPatch + width * height] - orig[offsetSearch + width * height], 2);
+                            double bDistance = pow(orig[offsetPatch + 2 * width * height] - orig[offsetSearch + 2 * width * height], 2);
+                            double patchDistance = rDistance + gDistance + bDistance;
+
+                            // Calculate the weight for the patch window pixel
+                            double weight = exp(-patchDistance / (h * h));
+
+                            // Update the patch pixel values
+                            rgbPatch[0] += orig[offsetPatch] * weight;
+                            rgbPatch[1] += orig[offsetPatch + width * height] * weight;
+                            rgbPatch[2] += orig[offsetPatch + 2 * width * height] * weight;
+
+                            // Update the weight sum
+                            weightSum += weight;
+                        }
+                    }
+                }
+
+                // Update the search window pixel values
+                rgbAccumulate[0] += rgbPatch[0];
+                rgbAccumulate[1] += rgbPatch[1];
+                rgbAccumulate[2] += rgbPatch[2];
+            }
+        }
+        // Calculate the final pixel values for the red, green, and blue channels
+        int offset = y * width + x;
+        res[offset] = (unsigned char)std::round(rgbAccumulate[0] / weightSum);
+        res[offset + width * height] = (unsigned char)std::round(rgbAccumulate[1] / weightSum);
+        res[offset + 2 * width * height] = (unsigned char)std::round(rgbAccumulate[2] / weightSum);
+    }
+}
+
+void CUDANLM(const unsigned char *img, unsigned char *res, const int h, const int patchSize, const int searchWindowSize, const int width, const int height)
+{
+    const int halfPatchSize = patchSize / 2;
+    const int halfSearchWindowSize = searchWindowSize / 2;
+
+    unsigned char *dev_img, *dev_res;
+    cudaMalloc((void **)&dev_img, width * height * 3 * sizeof(unsigned char));
+    cudaMalloc((void **)&dev_res, width * height * 3 * sizeof(unsigned char));
+
+    // Copy input image to device memory
+    cudaMemcpy(dev_img, img, width * height * 3 * sizeof(unsigned char), cudaMemcpyHostToDevice);
+
+    // Set grid and block sizes
+    dim3 blockSize(4, 4);
+    dim3 gridSize((width + blockSize.x - 1) / blockSize.x, (height + blockSize.y - 1) / blockSize.y);
+
+    // Call kernel
+    nlmKernel<<<gridSize, blockSize>>>(dev_img, dev_res, h, halfPatchSize, halfSearchWindowSize, width, height);
+
+    // Copy result image from device memory
+    cudaMemcpy(res, dev_res, width * height * 3 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
     // Free device memory
     cudaFree(dev_img);
