@@ -411,8 +411,8 @@ void CUDAMedianFilterDenoise(const unsigned char *img, unsigned char *res, const
 {
     // const int k = 3; // Kernel size
     const int mid = (k - 1) / 2; // Half of kernel size
-    const int n_pixels = k * k;
-    const int n_neighbors = n_pixels / 2 * (perc / 100);
+    // const int n_pixels = k * k;
+    // const int n_neighbors = n_pixels / 2 * (perc / 100);
 
     unsigned char *dev_img, *dev_res;
     cudaMalloc((void**)&dev_img, width * height * 3 * sizeof(unsigned char));
