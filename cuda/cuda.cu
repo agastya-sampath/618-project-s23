@@ -127,6 +127,122 @@ void CUDAHistogramEqualization(const unsigned char *img, unsigned char *res, con
     cudaFree(d_cum_hist);
 }
 
+/////////////////////////
+/* - Enhance (CLAHE) - */
+/////////////////////////
+
+__global__ void claheKernel(const unsigned char *img, unsigned char *res, const float max_slope, const int half_win, const int width, const int height, const int gridSize)
+{
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+    {
+        return;
+    }
+
+    // Calculate the range of pixels within the current window
+    const int x_min = fmaxf(0, x - half_win);
+    const int x_max = fminf(width - 1, x + half_win);
+    const int y_min = fmaxf(0, y - half_win);
+    const int y_max = fminf(height - 1, y + half_win);
+
+    // Compute the histogram for the current window
+    int local_hist_r[256], local_hist_g[256], local_hist_b[256];
+    memset(local_hist_r, 0, 256 * sizeof(int));
+    memset(local_hist_g, 0, 256 * sizeof(int));
+    memset(local_hist_b, 0, 256 * sizeof(int));
+
+    for (int i = x_min; i <= x_max; i++)
+    {
+        for (int j = y_min; j <= y_max; j++)
+        {
+            int offset = j * width + i;
+
+            local_hist_r[img[offset]]++;
+            local_hist_g[img[offset + width * height]]++;
+            local_hist_b[img[offset + 2 * width * height]]++;
+
+            // Note: somehow "atomicAdd" is not working
+            // atomicAdd(&local_hist_r[img[offset]], 1);
+            // atomicAdd(&local_hist_g[img[offset + width * height]], 1);
+            // atomicAdd(&local_hist_b[img[offset + 2 * width * height]], 1);
+        }
+    }
+
+    // Calculate the cumulative histogram for the current window for each channel
+    float cum_hist_r_local[256], cum_hist_g_local[256], cum_hist_b_local[256];
+    cum_hist_r_local[0] = local_hist_r[0] / (float)(gridSize * gridSize);
+    cum_hist_g_local[0] = local_hist_g[0] / (float)(gridSize * gridSize);
+    cum_hist_b_local[0] = local_hist_b[0] / (float)(gridSize * gridSize);
+
+    for (int i = 1; i < 256; i++)
+    {
+        cum_hist_r_local[i] = cum_hist_r_local[i - 1] + local_hist_r[i] / (float)(gridSize * gridSize);
+        cum_hist_g_local[i] = cum_hist_g_local[i - 1] + local_hist_g[i] / (float)(gridSize * gridSize);
+        cum_hist_b_local[i] = cum_hist_b_local[i - 1] + local_hist_b[i] / (float)(gridSize * gridSize);
+    }
+
+    float cum_hist_avg_local[256];
+    for (int i = 0; i < 256; i++)
+    {
+        cum_hist_avg_local[i] = (cum_hist_r_local[i] + cum_hist_g_local[i] + cum_hist_b_local[i]) / 3.0;
+    }
+
+    // 3 channels - hardcoding
+    for (int c = 0; c < 3; c++)
+    {
+        // Calculate the equalized value for each pixel in the current channel
+        for (int x_res = x_min; x_res <= x_max; x_res++)
+        {
+            for (int y_res = y_min; y_res <= y_max; y_res++)
+            {
+                // Get the original pixel
+                const int x_orig = fmaxf(0, fminf(width - 1, x_res));
+                const int y_orig = fmaxf(0, fminf(height - 1, y_res));
+
+                int offset = y_orig * width + x_orig;
+                const int val_orig = img[offset + c * width * height];
+
+                // Calculate the equalized value
+                const float cum_prob = cum_hist_avg_local[val_orig];
+                const float eq_val = fmaxf(0.0f, fminf(255.0f, 256 * (cum_prob - max_slope) / (1 - max_slope)));
+                offset = y_res * width + x_res;
+                res[offset + c * width * height] = (unsigned char)eq_val;
+            }
+        }
+    }
+}
+
+void CUDACLAHE(const unsigned char *img, unsigned char *res, const int width, const int height, const int clipLimit, const int gridSize)
+{
+    const int bins = 256;
+
+    // Calculate the maximum allowed slope
+    const float max_slope = clipLimit / (float)(gridSize * gridSize);
+
+    // Calculate the half window size for the local histograms
+    const int half_win = gridSize / 2;
+
+    // Compute histograms
+    dim3 blockDims(4, 4);
+    dim3 gridDims((width + blockDims.x - 1) / blockDims.x, (height + blockDims.y - 1) / blockDims.y);
+
+    // Allocate device memory
+    unsigned char *d_img, *d_res;
+    cudaMalloc((void **)&d_img, width * height * 3 * sizeof(unsigned char));
+    cudaMalloc((void **)&d_res, width * height * 3 * sizeof(unsigned char));
+    cudaMemcpy(d_img, img, width * height * 3 * sizeof(unsigned char), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_res, res, width * height * 3 * sizeof(unsigned char), cudaMemcpyHostToDevice);
+
+    // Call the kernel
+    claheKernel<<<gridDims, blockDims>>>(d_img, d_res, max_slope, half_win, width, height, gridSize);
+    cudaMemcpy(res, d_res, width * height * 3 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+
+    cudaFree(d_img);
+    cudaFree(d_res);
+}
+
 ////////////////////
 /* - Conversion - */
 ////////////////////
