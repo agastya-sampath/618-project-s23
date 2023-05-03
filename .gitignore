@@ -11,3 +11,10 @@ pipl-openmp
 pipl-serial
 pipl-cuda
 images-output/*
+Resolution*
+cuda/denoise*
+cuda/objs*
+*.bmp
+*.png
+*.log
+cuda/CycleTimer.h
