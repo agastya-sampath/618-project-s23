@@ -6,6 +6,7 @@
   - [Project Proposal](https://github.com/agastya-sampath/618-project-s23/blob/main/docs/project-proposal.pdf)
   - [Milestone Report](https://github.com/agastya-sampath/618-project-s23/blob/main/docs/project-milestone.pdf)
   - [Final Report](https://github.com/agastya-sampath/618-project-s23/blob/main/docs/project-report.pdf)
+  - [Source Code Repository](https://github.com/agastya-sampath/618-project-s23)
 
 ## Summary
 We plan to explore parallel implementations of several image processing techniques in the areas of image denoising, color correction and data augmentation. We plan to create an image processing pipeline using these techniques and compare the techniques/applications in terms of their parallelizability.
