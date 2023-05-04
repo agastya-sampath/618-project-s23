@@ -1,0 +1,1 @@
+Output images will go inside this directory
