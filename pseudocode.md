@@ -91,3 +91,27 @@ Output: res (resulting image) -> by reference
 18.             Obtain original pixel from the coordinates calculated above
 19.             Calculate equalized value, and set the corresponding coordinate pixel of res
 ```
+
+# Report Notes
+## CImg RGB access
+```cpp
+// CImg Alignment Reference: https://cimg.eu/reference/storage.html
+__global__ void kernel(){
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height)
+        return;
+
+    // What we thought the access is:
+    int offset = (y * width + x) * 3
+    int r = img[offset];
+    int g = img[offset + 1];
+    int b = img[offset + 2];
+
+    // What the access should be:
+    int offset = y * width + x;
+    int r = img[offset];
+    int g = img[offset + width * height];
+    int b = img[offset + 2 * width * height];
+}
+```
